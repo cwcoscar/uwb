@@ -8,6 +8,11 @@
 pthread_mutex_t mutex;
 uwb::uwb_raw uwb_data;
 
+struct arg_struct {
+    mn::CppLinuxSerial::SerialPort arg1;
+    ros::Publisher arg2;
+};
+
 using namespace mn::CppLinuxSerial;
 
 const std::vector<std::string> split(const std::string &str, const char &delimiter) {
@@ -51,10 +56,10 @@ uwb::uwb_raw fill_in_topic(const std::vector<std::string> data) {
     return result;
 }
 
-static void *reader_handler(void *args)
+static void *reader_handler(void *arguments)
 {
     std::cout << "\033[32m" << "ENTER UWB Reader thread.\n" << "\033[0m" << std::endl;
-    SerialPort *serialPort = (SerialPort *) args;
+    struct arg_struct *args = (struct arg_struct *)arguments;
 
     while (1) {
         std::string readData;
@@ -62,7 +67,7 @@ static void *reader_handler(void *args)
         
 		pthread_mutex_lock(&mutex);
         while(readData != "\n"){
-            serialPort->Read(readData);
+            args->arg1.Read(readData);
             message_raw = message_raw + readData;
         }
 		pthread_mutex_unlock(&mutex);
@@ -74,6 +79,8 @@ static void *reader_handler(void *args)
 
         uwb_data = fill_in_topic(message_data);
 		std::cout << "\033[33m" << uwb_data << "\033[0m" << std::endl;
+
+        args->arg2.publish(uwb_data);
     }
     std::cout << "EXIT UWB Reader thread.\n" << std::endl;
     return nullptr;
@@ -82,13 +89,22 @@ static void *reader_handler(void *args)
 int main(int argc, char **argv) {
     pthread_t thread_reader;
 
+    ros::init(argc, argv, "uwb");
+    ros::NodeHandle n;
+
+    ros::Publisher pub = n.advertise<uwb::uwb_raw>("uwb_raw", 1);
+
 	// Create serial port object and open serial port
     SerialPort serialPort("/dev/ttyUSB0", BaudRate::B_115200, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);
     serialPort.SetTimeout(-1); // Block when reading until any data is received
 	serialPort.Open();
     std::cout << "\033[32m" << "Open serial port" << "\033[0m" << std::endl;
 
-    if (pthread_create(&thread_reader, NULL, reader_handler, &serialPort)) {
+    struct arg_struct args;
+    args.arg1 = serialPort;
+    args.arg2 = pub;
+
+    if (pthread_create(&thread_reader, NULL, reader_handler, &args)) {
         perror("could not create thread for reader_handler");
         return -1;
     }
