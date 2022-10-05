@@ -11,7 +11,7 @@ def check_dir(file_name):
     directory = os.path.isfile(file_name)
 
 def initialize():
-    file_name = '/home/meclab/cwc/uwb_raw_data/20221004/csv/T0_25m.csv'
+    file_name = '/home/meclab/catkin_ws/src/uwb_YCHIOT/uwb_raw_data/20221004/csv/raw/T0_25m.csv'
     if os.path.isfile(file_name):
         print(file_name)
         print("File exists! Check the file name!")
