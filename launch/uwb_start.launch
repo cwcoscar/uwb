@@ -1,0 +1,5 @@
+<!---->
+<launch>
+  <node name="uwb_start" pkg="uwb_YCHIOT" type="uwb_start_YCHIOT" output="screen"/>
+  <node name="uwb_calibration" pkg="uwb_YCHIOT" type="uwb_calibration" output="screen"/>
+</launch>

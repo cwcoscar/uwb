@@ -40,23 +40,31 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+add_executable(uwb_calibration src/uwb_calibration.cpp)
+
+target_link_libraries(uwb_calibration ${catkin_LIBRARIES})
+
+add_dependencies(uwb_calibration
+  ${catkin_EXPORTED_TARGETS}
+)
+
 add_executable(uwb_start_YCHIOT src/uwb_start.cpp)
 
-# option(SERIAL_BUILD_SHARED_LIBS "Build CppLinuxSerial shared library" OFF)
+option(SERIAL_BUILD_SHARED_LIBS "Build CppLinuxSerial shared library" OFF)
 
-# if (SERIAL_BUILD_SHARED_LIBS)
-#   set(LibType SHARED)
-# else()
-#   set(LibType STATIC)
-# endif()
+if (SERIAL_BUILD_SHARED_LIBS)
+  set(LibType SHARED)
+else()
+  set(LibType STATIC)
+endif()
 
-# file(GLOB_RECURSE CppLinuxSerial_SRC
-#         "src/SerialPort.cpp")
+file(GLOB_RECURSE CppLinuxSerial_SRC
+        "src/SerialPort.cpp")
 
-# file(GLOB_RECURSE CppLinuxSerial_HEADERS
-#         "include/CppLinuxSerial/*.hpp")
+file(GLOB_RECURSE CppLinuxSerial_HEADERS
+        "include/CppLinuxSerial/*.hpp")
 
-# add_library(CppLinuxSerial ${LibType} ${CppLinuxSerial_SRC} ${CppLinuxSerial_HEADERS})
+add_library(CppLinuxSerial ${LibType} ${CppLinuxSerial_SRC} ${CppLinuxSerial_HEADERS})
 
 target_link_libraries(uwb_start_YCHIOT CppLinuxSerial pthread ${catkin_LIBRARIES})
 
@@ -70,11 +78,14 @@ add_dependencies(uwb_start_YCHIOT
 
 install(PROGRAMS
   scripts/uwb_csv_recorder.py
+  scripts/cal_std_mean.py
+  scripts/preprocess.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(TARGETS
   uwb_start_YCHIOT
+  uwb_calibration
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

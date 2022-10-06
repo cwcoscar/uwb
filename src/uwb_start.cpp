@@ -2,12 +2,12 @@
 #include <iostream>
 #include <unistd.h>
 #include <pthread.h>
-#include <uwb/uwb_raw.h>
+#include <uwb_YCHIOT/uwb_raw.h>
 #include "ros/ros.h"
 #include <signal.h>
 
 pthread_mutex_t mutex;
-uwb::uwb_raw uwb_data;
+uwb_YCHIOT::uwb_raw uwb_data;
 
 struct arg_struct {
     mn::CppLinuxSerial::SerialPort arg1;
@@ -32,7 +32,7 @@ const std::vector<std::string> Split(const std::string &str, const char &delimit
     return result;
 }
 
-void Available_anchor(const std::string& message, uwb::uwb_raw& data){
+void Available_anchor(const std::string& message, uwb_YCHIOT::uwb_raw& data){
     int a_c = std::stoi(message);
     a_c % 2 == 1 ? data.A0 = true : data.A0 = false;
     a_c % 4 > 1 ? data.A1 = true : data.A1 = false;
@@ -45,8 +45,8 @@ double Convert_distance(const std::string& message){
     return result/1000;
 }
 
-uwb::uwb_raw Fill_in_topic(const std::vector<std::string> data) {
-    uwb::uwb_raw result;
+uwb_YCHIOT::uwb_raw Fill_in_topic(const std::vector<std::string> data) {
+    uwb_YCHIOT::uwb_raw result;
     struct timeval t_now;
     gettimeofday(&t_now,NULL);
 
@@ -97,10 +97,10 @@ int main(int argc, char **argv) {
 
     pthread_t thread_reader;
 
-    ros::init(argc, argv, "uwb");
+    ros::init(argc, argv, "uwb_start");
     ros::NodeHandle n;
 
-    ros::Publisher pub = n.advertise<uwb::uwb_raw>("uwb_raw", 1);
+    ros::Publisher pub = n.advertise<uwb_YCHIOT::uwb_raw>("uwb_raw", 1);
 
 	// Create serial port object and open serial port
     SerialPort serialPort("/dev/ttyUSB0", BaudRate::B_115200, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);

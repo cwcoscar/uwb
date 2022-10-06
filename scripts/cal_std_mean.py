@@ -145,3 +145,10 @@ pic = plt.plot(T0_true_range, T0_std[0],':', label='T0_A0')
 plt.title('T0_std')
 plt.legend(loc='upper left', shadow=False, fontsize='medium')
 plt.show()
+
+print(T0_bias[0])
+mean = 0
+for i in range(len(T0_bias[0])):
+    mean = mean + T0_bias[0][i]
+mean = mean / len(T0_bias[0])
+print(mean)
