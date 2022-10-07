@@ -79,6 +79,7 @@ add_dependencies(uwb_start_YCHIOT
 install(PROGRAMS
   scripts/uwb_csv_recorder.py
   scripts/cal_std_mean.py
+  scripts/cal_std_mean_tag_at_same_point.py
   scripts/preprocess.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
