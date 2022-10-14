@@ -14,10 +14,12 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  uwb_raw.msg
-)
+add_message_files(DIRECTORY msg)
+# add_message_files(
+#   FILES
+#   uwb_raw.msg
+#   uwb_ndt_compare.msg
+# )
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
@@ -38,6 +40,14 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+)
+
+add_executable(uwb_ndt_compare src/uwb_ndt_compare.cpp)
+
+target_link_libraries(uwb_ndt_compare ${catkin_LIBRARIES})
+
+add_dependencies(uwb_ndt_compare
+  ${catkin_EXPORTED_TARGETS}
 )
 
 add_executable(uwb_calibration src/uwb_calibration.cpp)
@@ -87,6 +97,7 @@ install(PROGRAMS
 install(TARGETS
   uwb_start_YCHIOT
   uwb_calibration
+  uwb_ndt_compare
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
