@@ -5,7 +5,8 @@ class UwbCalibration{
     private:
         ros::Publisher _pub;
         uwb_YCHIOT::uwb_raw _data_calibrated;
-        const double _T0_bias = 0.564258982172;
+        const double _T0_bias = 0.60264459806428794;
+        const double _T3_bias = 0.67916991348614453;
     
     public:
         UwbCalibration(ros::Publisher pub);
@@ -20,18 +21,34 @@ UwbCalibration::UwbCalibration(ros::Publisher pub){
 
 void UwbCalibration::Calibration(uwb_YCHIOT::uwb_raw raw_data){
     _data_calibrated = raw_data;
-    if (raw_data.A0){
+    if (_data_calibrated.Tag_id == 0){
+        if (raw_data.A0){
         _data_calibrated.distance_to_A0 = _data_calibrated.distance_to_A0 - _T0_bias;
+        }
+        if (raw_data.A1){
+            _data_calibrated.distance_to_A1 = _data_calibrated.distance_to_A1 - _T0_bias;
+        }
+        if (raw_data.A2){
+            _data_calibrated.distance_to_A2 = _data_calibrated.distance_to_A2 - _T0_bias;
+        }
+        if (raw_data.A3){
+            _data_calibrated.distance_to_A3 = _data_calibrated.distance_to_A3 - _T0_bias;
+        } 
     }
-    if (raw_data.A1){
-        _data_calibrated.distance_to_A1 = _data_calibrated.distance_to_A1 - _T0_bias;
+    else if (_data_calibrated.Tag_id == 3){
+        if (raw_data.A0){
+        _data_calibrated.distance_to_A0 = _data_calibrated.distance_to_A0 - _T3_bias;
+        }
+        if (raw_data.A1){
+            _data_calibrated.distance_to_A1 = _data_calibrated.distance_to_A1 - _T3_bias;
+        }
+        if (raw_data.A2){
+            _data_calibrated.distance_to_A2 = _data_calibrated.distance_to_A2 - _T3_bias;
+        }
+        if (raw_data.A3){
+            _data_calibrated.distance_to_A3 = _data_calibrated.distance_to_A3 - _T3_bias;
+        } 
     }
-    if (raw_data.A2){
-        _data_calibrated.distance_to_A2 = _data_calibrated.distance_to_A2 - _T0_bias;
-    }
-    if (raw_data.A3){
-        _data_calibrated.distance_to_A3 = _data_calibrated.distance_to_A3 - _T0_bias;
-    } 
 }
 
 
