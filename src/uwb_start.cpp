@@ -33,7 +33,8 @@ const std::vector<std::string> Split(const std::string &str, const char &delimit
 }
 
 void Available_anchor(const std::string& message, uwb_YCHIOT::uwb_raw& data){
-    int a_c = std::stoi(message);
+    int a_c = 0;
+    message[1] >= 'a' ? a_c = int(message[1]) - int('a') + 10 : a_c = int(message[1]);
     a_c % 2 == 1 ? data.A0 = true : data.A0 = false;
     a_c % 4 > 1 ? data.A1 = true : data.A1 = false;
     a_c % 8 > 3 ? data.A2 = true : data.A2 = false;
@@ -49,7 +50,6 @@ uwb_YCHIOT::uwb_raw Fill_in_topic(const std::vector<std::string> data) {
     uwb_YCHIOT::uwb_raw result;
     struct timeval t_now;
     gettimeofday(&t_now,NULL);
-
     result.stamp.sec = t_now.tv_sec;
     result.stamp.nsec = t_now.tv_usec*1000;
     result.MID = data[0];
@@ -84,9 +84,10 @@ static void *Reader_handler(void *arguments)
         // }
 
         uwb_data = Fill_in_topic(message_data);
-		std::cout << "\033[33m" << uwb_data << "\033[0m" << std::endl;
-
-        args->arg2.publish(uwb_data);
+        if (uwb_data.MID == "mc"){
+            std::cout << "\033[33m" << uwb_data << "\033[0m" << std::endl;
+            args->arg2.publish(uwb_data);
+        }
     }
     std::cout << "EXIT UWB Reader thread.\n" << std::endl;
     return nullptr;
@@ -96,14 +97,16 @@ int main(int argc, char **argv) {
     signal(SIGINT, Siginthandler);
 
     pthread_t thread_reader;
+    std::string port_;
 
     ros::init(argc, argv, "uwb_start");
     ros::NodeHandle n;
 
     ros::Publisher pub = n.advertise<uwb_YCHIOT::uwb_raw>("uwb_raw", 1);
+    n.param("port", port_ , std::string("/dev/ttyUSB0"));
 
 	// Create serial port object and open serial port
-    SerialPort serialPort("/dev/ttyUSB0", BaudRate::B_115200, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);
+    SerialPort serialPort(port_, BaudRate::B_115200, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);
     serialPort.SetTimeout(-1); // Block when reading until any data is received
 	serialPort.Open();
     std::cout << "\033[32m" << "Open serial port" << "\033[0m" << std::endl;

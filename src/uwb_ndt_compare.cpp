@@ -1,9 +1,12 @@
 #include "ros/ros.h"
 #include <Eigen/Dense>
+#include<cmath>
 
 #include <uwb_YCHIOT/uwb_raw.h>
 #include <uwb_YCHIOT/uwb_ndt_compare.h>
 #include <geometry_msgs/PoseStamped.h>
+#include "geometry_msgs/Quaternion.h"
+// #include "tf/transform_datatypes.h"
 
 Eigen::VectorXd Fixed0_position(3);
 Eigen::VectorXd Fixed1_position(3);
@@ -40,6 +43,8 @@ class UwbCompareNdt{
         void UwbrawCallback(const uwb_YCHIOT::uwb_raw& msg);
         void NdtposeCallback(const geometry_msgs::PoseStamped& msg);
         double Calculate_distance(Eigen::VectorXd v1, Eigen::VectorXd v2);
+        Eigen::VectorXd transform2mapframe(Eigen::VectorXd tf);
+        Eigen::MatrixXd quaternion2Rotation(geometry_msgs::Quaternion quat);
 };
 
 UwbCompareNdt::UwbCompareNdt(std::vector<Eigen::VectorXd> F_position, std::vector<Eigen::VectorXd> A_tf, ros::Publisher pub){
@@ -63,10 +68,10 @@ void UwbCompareNdt::UwbrawCallback(const uwb_YCHIOT::uwb_raw& msg){
     Eigen::VectorXd v_A3(3);
     Eigen::VectorXd F(3);
     v_ndt << pose_data_.pose.position.x, pose_data_.pose.position.y, pose_data_.pose.position.z;
-    v_A0 = v_ndt + tf0_;
-    v_A1 = v_ndt + tf1_;
-    v_A2 = v_ndt + tf2_;
-    v_A3 = v_ndt + tf3_;
+    v_A0 = v_ndt + transform2mapframe(tf0_);
+    v_A1 = v_ndt + transform2mapframe(tf1_);
+    v_A2 = v_ndt + transform2mapframe(tf2_);
+    v_A3 = v_ndt + transform2mapframe(tf3_);
 
     if (uwb_data_.Tag_id == 0){
         F = F0_;
@@ -91,12 +96,21 @@ void UwbCompareNdt::UwbrawCallback(const uwb_YCHIOT::uwb_raw& msg){
     uwb_ndt_data_.uwb_to_A1 = uwb_data_.distance_to_A1;
     uwb_ndt_data_.uwb_to_A2 = uwb_data_.distance_to_A2;
     uwb_ndt_data_.uwb_to_A3 = uwb_data_.distance_to_A3;
+
     uwb_ndt_data_.ndt_to_A0 = Calculate_distance(v_A0, F);
     uwb_ndt_data_.ndt_to_A1 = Calculate_distance(v_A1, F);
     uwb_ndt_data_.ndt_to_A2 = Calculate_distance(v_A2, F);
     uwb_ndt_data_.ndt_to_A3 = Calculate_distance(v_A3, F);
 
-    std::cout << uwb_ndt_data_ << std::endl;
+    // std::cout << uwb_ndt_data_ << std::endl;
+    std::cout << "NDT A0: " << uwb_ndt_data_.ndt_to_A0 << std::endl;
+    std::cout << "UWB A0: " << uwb_ndt_data_.uwb_to_A0 << std::endl;
+    std::cout << "UWB - NDT: " << uwb_ndt_data_.uwb_to_A0 - uwb_ndt_data_.ndt_to_A0 << std::endl;
+    // std::cout << "transform2mapframe: " << std::endl << transform2mapframe(tf0_) << std::endl;
+    std::cout << "NDT A3: " << uwb_ndt_data_.ndt_to_A3 << std::endl;
+    std::cout << "UWB A3: " << uwb_ndt_data_.uwb_to_A3 << std::endl;
+    std::cout << "UWB - NDT: " << uwb_ndt_data_.uwb_to_A3 - uwb_ndt_data_.ndt_to_A3 << std::endl;
+    // std::cout << "transform2mapframe: " << std::endl << transform2mapframe(tf3_) << std::endl;
     std::cout << "-----------------------------------" << std::endl;
     pub_.publish(uwb_ndt_data_);
 }
@@ -111,15 +125,33 @@ double UwbCompareNdt::Calculate_distance(Eigen::VectorXd v1, Eigen::VectorXd v2)
     return v.norm();
 }
 
+Eigen::VectorXd UwbCompareNdt::transform2mapframe(Eigen::VectorXd tf){
+    Eigen::Matrix<double, 3, 3> R = quaternion2Rotation(pose_data_.pose.orientation);
+    Eigen::VectorXd transform_tf = R*tf;
+    return transform_tf;
+}
+
+Eigen::MatrixXd UwbCompareNdt::quaternion2Rotation(geometry_msgs::Quaternion quat){
+    Eigen::Matrix<double, 3, 3> R;
+    double q0 = quat.w;
+    double q1 = quat.x;
+    double q2 = quat.y;
+    double q3 = quat.z;
+    R << (2*(pow(q0,2)+pow(q1,2))-1), (2*(q1*q2-q0*q3)), (2*(q1*q3+q0*q2)),
+    (2*(q1*q2+q0*q3)), (2*(pow(q0,2)+pow(q2,2))-1), (2*(q2*q3-q0*q1)),
+    (2*(q1*q3-q0*q2)), (2*(q2*q3+q0*q1)), (2*(pow(q0,2)+pow(q3,2))-1);
+    return R;
+}
+
 int main(int argc, char **argv) {
-    Fixed0_position << 1, 1, 1;
+    Fixed0_position << 65.8844985962, 6.86607885361, -42.2941116333;
     Fixed1_position << 1, 1, 1;
     Fixed2_position << 1, 1, 1;
     Fixed3_position << 1, 1, 1;
-    Anchor0_tf << 1, 1, 1;
-    Anchor1_tf << 1, 1, 1;
-    Anchor2_tf << 1, 1, 1;
-    Anchor3_tf << 1, 1, 1;
+    Anchor0_tf << 0.97, -0.4, 1.67; // front right
+    Anchor1_tf << 1.33, 0.4, 1.67; // front left
+    Anchor2_tf << 0.17, -0.4, 1.67; // rear right
+    Anchor3_tf << 0.17, 0.4, 1.67; // rear left
     std::vector<Eigen::VectorXd> A_position = {Fixed0_position, Fixed1_position, Fixed2_position, Fixed3_position};
     std::vector<Eigen::VectorXd> A_tf = {Anchor0_tf, Anchor1_tf, Anchor2_tf, Anchor3_tf};
 
