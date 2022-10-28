@@ -1,0 +1,15 @@
+<launch>
+
+  <arg name="x" default="65.8844985962"/>
+  <arg name="y" default="6.86607885361"/>
+  <arg name="z" default="-42.2941116333"/>
+  <arg name="yaw" default="0.0"/>
+  <arg name="pitch" default="0.0"/>
+  <arg name="roll" default="0.0"/>
+  <arg name="frame_id" default="map"/>
+  <arg name="child_frame_id" default="uwb_fixed_tag"/>
+  <arg name="period_in_ms" default="10"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="map_to_uwb_fixed_tag" args="$(arg x) $(arg y) $(arg z) $(arg yaw) $(arg pitch) $(arg roll) $(arg frame_id) $(arg child_frame_id) $(arg period_in_ms)"/>
+
+</launch>
