@@ -13,9 +13,9 @@ if __name__ == '__main__':
     # lon = 120.2226862   # deg
     # h = 92.771      # meters
 
-    lat = 22.9966685889  # deg
-    lon = 120.222550464   # deg
-    h =  98.211      # meters
+    lat = 22  # deg
+    lon = 120   # deg
+    h =  98      # meters
 
     result = pm.geodetic2enu(lat, lon, h, lat0, lon0, h0)
     print(result)

@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
   tf
+  sensor_msgs
 )
 
 ## Generate messages in the 'msg' folder
@@ -33,6 +34,7 @@ catkin_package(
  rospy 
  std_msgs 
  message_runtime
+ sensor_msgs
 )
 
 ###########

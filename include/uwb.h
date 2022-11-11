@@ -13,6 +13,7 @@ class Uwb{
         void set_location(Eigen::VectorXd xyz);
         Eigen::VectorXd get_xyz();
         void display_info();
+        void revise_xyz(Eigen::VectorXd estimated_xyz);
 };
 
 class Uwbanchor: public Uwb{
@@ -33,6 +34,7 @@ class Uwbanchor: public Uwb{
         std::array<double,8> get_to_tag_range();
         std::array<Eigen::VectorXd,8> get_tag_location();
         void display_info();
+        void revise_tag_availabiliy(int num, bool availabilty);
 };
 
 class Uwbtag: public Uwb{

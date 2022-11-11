@@ -20,6 +20,10 @@ void Uwb::display_info(){
     std::cout << "location: " << xyz_[0] << " " << xyz_[1] << " " << xyz_[2] << std::endl;
 }
 
+void Uwb::revise_xyz(Eigen::VectorXd estimated_xyz){
+    xyz_ = estimated_xyz;
+}
+
 Uwbanchor::Uwbanchor(int id , Eigen::VectorXd xyz, std::array<Eigen::VectorXd,8> tag_location) 
 : Uwb(id, xyz), tag_location_(tag_location){
     for (int i = 0; i < sizeof(tag_availabiliy_); i++){
@@ -75,6 +79,10 @@ void Uwbanchor::display_info(){
     // for (int i = 0; i < 8; i++){
     //     tag_availabiliy_[i] == true ? std::cout << "to_tag" << i << "_range : " << to_tag_range_[i] << std::endl : continue;
     // }
+}
+
+void Uwbanchor::revise_tag_availabiliy(int num, bool availabilty){
+    tag_availabiliy_[num] = availabilty;
 }
 
 Uwbtag::Uwbtag(int id , Eigen::VectorXd xyz) 
