@@ -1,0 +1,13 @@
+<!---->
+<launch>
+  <arg name="ublox_fix_topic" value="/ublox_f9k/fix"/>
+  <arg name="ini_x" value="45"/>
+  <arg name="ini_y" value="175"/>
+  <arg name="ini_z" value="-60"/>
+  <node name="uwb_positioning" pkg="uwb_YCHIOT" type="uwb_positioning" output="screen">
+    <param name="ublox_fix_topic" value="$(arg ublox_fix_topic)"/>
+    <param name="ini_x" value="$(arg ini_x)" type="double"/>
+    <param name="ini_y" value="$(arg ini_y)" type="double"/>
+    <param name="ini_z" value="$(arg ini_z)" type="double"/>
+  </node>
+</launch>

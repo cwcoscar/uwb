@@ -176,7 +176,7 @@ void Uwbpositioning::Weight_matrix(positioning& variables, Uwbanchor* A){
 void Uwbpositioning::Update_estimate(positioning& variables){
     if (variables.iteration_num > threshold_iteration_num){
         variables.iteration_continue = false;
-        std::cout << "\033[31m" << "Iteration times over " << threshold_iteration_num << " : Iterarion failed !" << "\033[0m" << std::endl;
+        std::cout << "\033[31m" << "Iteration times over " << threshold_iteration_num << " !" << "\033[0m" << std::endl;
     }
     else if (variables.iteration_value < threshold_iteration_value){
         variables.iteration_continue = false;
@@ -259,8 +259,13 @@ void Uwbpositioning::Test(){
 
 int main(int argc, char **argv) {
 
+    std::string ublox_fix_topic_;
+
     ros::init(argc, argv, "uwb_positioning");
     ros::NodeHandle n;
+    ros::NodeHandle nh("~");
+
+    nh.param("ublox_fix_topic", ublox_fix_topic_, std::string("/ublox_f9k/fix"));
 
     ros::Publisher pub0 = n.advertise<uwb_YCHIOT::uwb_positioning>("/uwb_position/A0", 1);
     ros::Publisher pub1 = n.advertise<uwb_YCHIOT::uwb_positioning>("/uwb_position/A1", 1);
@@ -270,8 +275,13 @@ int main(int argc, char **argv) {
     // ros::Publisher pub[Anchor_number] = {pub0, pub1};
 
     Eigen::VectorXd xyz(3);
-    // xyz << 51, 190, -47;
-    xyz << 45, 175, -60;
+    if (nh.hasParam("ini_x") && nh.hasParam("ini_y") && nh.hasParam("ini_z")){
+        nh.getParam("ini_x", xyz[0]);
+        nh.getParam("ini_y", xyz[1]);
+        nh.getParam("ini_z", xyz[2]);
+    }
+    else xyz << 45, 175, -60;
+
     Eigen::VectorXd location(3);
     std::array<Eigen::VectorXd,Tag_number> tag_location;
     location << 59.0414, 194.1903, -47.7806;
@@ -324,8 +334,7 @@ int main(int argc, char **argv) {
     Uwbpositioning uwbpositioning(pub, Anchor, Tag);
 
     ros::Subscriber sub = n.subscribe("/uwb_calibration", 1, &Uwbpositioning::UwbCalibrationCallback, &uwbpositioning);
-    ros::Subscriber sub1 = n.subscribe("/ublox_f9k/fix", 1, &Uwbpositioning::UbloxfixCallback, &uwbpositioning);
-
+    ros::Subscriber sub1 = n.subscribe(ublox_fix_topic_, 1, &Uwbpositioning::UbloxfixCallback, &uwbpositioning);
 
 
     ros::Rate loop_rate(3);//uwb_calibration update averaging 3.57 Hz  

@@ -101,10 +101,12 @@ int main(int argc, char **argv) {
 
     ros::init(argc, argv, "uwb_start");
     ros::NodeHandle n;
+    ros::NodeHandle nh("~");
+
+    nh.param("port", port_ , std::string("/dev/ttyUSB0"));
 
     ros::Publisher pub = n.advertise<uwb_YCHIOT::uwb_raw>("uwb_raw", 1);
-    n.param("port", port_ , std::string("/dev/ttyUSB0"));
-
+    
 	// Create serial port object and open serial port
     SerialPort serialPort(port_, BaudRate::B_115200, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);
     serialPort.SetTimeout(-1); // Block when reading until any data is received
