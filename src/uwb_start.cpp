@@ -34,7 +34,7 @@ const std::vector<std::string> Split(const std::string &str, const char &delimit
 
 void Available_anchor(const std::string& message, uwb_YCHIOT::uwb_raw& data){
     int a_c = 0;
-    message[1] >= 'a' ? a_c = int(message[1]) - int('a') + 10 : a_c = int(message[1]);
+    message[1] >= 'a' ? a_c = int(message[1]) - int('a') + 10 : a_c = stoi(message);
     a_c % 2 == 1 ? data.A0 = true : data.A0 = false;
     a_c % 4 > 1 ? data.A1 = true : data.A1 = false;
     a_c % 8 > 3 ? data.A2 = true : data.A2 = false;
