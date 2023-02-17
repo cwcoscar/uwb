@@ -86,16 +86,16 @@ class Detector:
         marker.color.b = 0
 
         marker.color.a = 1
-        marker.scale.x = 0.03
-        marker.scale.y = 0.03
-        marker.scale.z = 0.03
+        marker.scale.x = 0.2
+        marker.scale.y = 0.2
+        marker.scale.z = 0.2
 	#1
         #marker.pose.position.x = 20.1418132782
         #marker.pose.position.y = 117.99786377
         #marker.pose.position.z = -47.1815109253
-	    marker.pose.position.x = 64.3159561157
-        marker.pose.position.y = 14.7286958694
-        marker.pose.position.z = -42.5270423889	
+        marker.pose.position.x = 50.5405
+        marker.pose.position.y = 193.4376
+        marker.pose.position.z = -47.5031	
 
         marker.pose.orientation.x = 0
         marker.pose.orientation.y = 0

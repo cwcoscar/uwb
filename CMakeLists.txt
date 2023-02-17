@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   message_generation
+  tf
+  sensor_msgs
 )
 
 ## Generate messages in the 'msg' folder
@@ -24,6 +26,7 @@ add_message_files(DIRECTORY msg)
 generate_messages(
   DEPENDENCIES
   std_msgs
+  geometry_msgs
 )
 
 catkin_package(
@@ -32,6 +35,7 @@ catkin_package(
  rospy 
  std_msgs 
  message_runtime
+ sensor_msgs
 )
 
 ###########
@@ -42,11 +46,19 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(uwb_ndt_compare src/uwb_ndt_compare.cpp)
+add_executable(uwb_positioning src/uwb_positioning.cpp src/uwb.cpp)
 
-target_link_libraries(uwb_ndt_compare ${catkin_LIBRARIES})
+target_link_libraries(uwb_positioning ${catkin_LIBRARIES})
 
-add_dependencies(uwb_ndt_compare
+add_dependencies(uwb_positioning
+  ${catkin_EXPORTED_TARGETS}
+)
+
+add_executable(uwb_ndt_comparison src/uwb_ndt_compare.cpp)
+
+target_link_libraries(uwb_ndt_comparison ${catkin_LIBRARIES})
+
+add_dependencies(uwb_ndt_comparison
   ${catkin_EXPORTED_TARGETS}
 )
 
@@ -91,13 +103,15 @@ install(PROGRAMS
   scripts/cal_std_mean.py
   scripts/cal_std_mean_tag_at_same_point.py
   scripts/preprocess.py
+  scripts/ndt_csv_recorder
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(TARGETS
   uwb_start_YCHIOT
   uwb_calibration
-  uwb_ndt_compare
+  uwb_ndt_comparison
+  uwb_positioning
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import rospy
 import csv
-from uwb_YCHIOT.msg import uwb_raw
+from uwb_YCHIOT.msg import uwb_ndt_compare
 import os
 import signal
 import sys
@@ -12,7 +12,7 @@ row_T2 = 1
 row_T3 = 1
 dir = '/home/meclab/Desktop/Bag/test_uwb/20221018/'
 # distance = '32m'
-distance = 'outfield_uwb_03'
+distance = 'outfield_ndt_03'
 
 def signal_handler(sig, frame):
     global row_T0
@@ -73,26 +73,26 @@ def write_csv(writer, raw_data, row_number):
     num_anchor = 4
     row = []
     if raw_data.A0:
-        row.append(raw_data.distance_to_A0)
+        row.append(raw_data.ndt_to_A0)
     else:
         row.append(0)
     if raw_data.A1:
-        row.append(raw_data.distance_to_A1)
+        row.append(raw_data.ndt_to_A1)
     else:
         row.append(0)
     if raw_data.A2:
-        row.append(raw_data.distance_to_A2)
+        row.append(raw_data.ndt_to_A2)
     else:
         row.append(0)
     if raw_data.A3:
-        row.append(raw_data.distance_to_A3)
+        row.append(raw_data.ndt_to_A3)
     else:
         row.append(0)
 
     writer.writerow(row)
     print(row_number, row)
 
-def Uwbrawcallback(data, arg):
+def Uwbndtcomparecallback(data, arg):
     global row_T0
     global row_T1
     global row_T2
@@ -115,8 +115,8 @@ if __name__ == '__main__':
     writer_list = initialize()
     signal.signal(signal.SIGINT, signal_handler)
     if writer_list :
-        rospy.init_node('uwb_record_csv', anonymous=True)
-        rospy.Subscriber("uwb_raw", uwb_raw, Uwbrawcallback, writer_list)
+        rospy.init_node('ndt_record_csv', anonymous=True)
+        rospy.Subscriber("uwb_ndt_compare", uwb_ndt_compare, Uwbndtcomparecallback, writer_list)
         rospy.spin()
     sys.exit(0)
 

@@ -3,7 +3,7 @@ time stamp
 
 string MID
 # mr: distance from tag to anchor
-# ma: distance from tag to anchor, being optimized
+# mc: distance from tag to anchor, being optimized
 # ma: distance from anchor to anchor
 
 int32 Tag_id

@@ -1,10 +1,12 @@
-#include <CppLinuxSerial/SerialPort.hpp>
 #include <iostream>
 #include <unistd.h>
 #include <pthread.h>
-#include <uwb_YCHIOT/uwb_raw.h>
-#include "ros/ros.h"
 #include <signal.h>
+
+#include "ros/ros.h"
+
+#include <CppLinuxSerial/SerialPort.hpp>
+#include <uwb_YCHIOT/uwb_raw.h>
 
 pthread_mutex_t mutex;
 uwb_YCHIOT::uwb_raw uwb_data;
@@ -34,7 +36,7 @@ const std::vector<std::string> Split(const std::string &str, const char &delimit
 
 void Available_anchor(const std::string& message, uwb_YCHIOT::uwb_raw& data){
     int a_c = 0;
-    message[1] >= 'a' ? a_c = int(message[1]) - int('a') + 10 : a_c = int(message[1]);
+    message[1] >= 'a' ? a_c = int(message[1]) - int('a') + 10 : a_c = stoi(message);
     a_c % 2 == 1 ? data.A0 = true : data.A0 = false;
     a_c % 4 > 1 ? data.A1 = true : data.A1 = false;
     a_c % 8 > 3 ? data.A2 = true : data.A2 = false;
@@ -85,7 +87,7 @@ static void *Reader_handler(void *arguments)
 
         uwb_data = Fill_in_topic(message_data);
         if (uwb_data.MID == "mc"){
-            std::cout << "\033[33m" << uwb_data << "\033[0m" << std::endl;
+            // std::cout << "\033[33m" << uwb_data << "\033[0m" << std::endl;
             args->arg2.publish(uwb_data);
         }
     }
@@ -101,10 +103,12 @@ int main(int argc, char **argv) {
 
     ros::init(argc, argv, "uwb_start");
     ros::NodeHandle n;
+    ros::NodeHandle nh("~");
+
+    nh.param("port", port_ , std::string("/dev/ttyUSB0"));
 
     ros::Publisher pub = n.advertise<uwb_YCHIOT::uwb_raw>("uwb_raw", 1);
-    n.param("port", port_ , std::string("/dev/ttyUSB0"));
-
+    
 	// Create serial port object and open serial port
     SerialPort serialPort(port_, BaudRate::B_115200, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);
     serialPort.SetTimeout(-1); // Block when reading until any data is received
