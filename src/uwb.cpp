@@ -1,5 +1,5 @@
 #include "uwb.h"
-#include <iostream>
+
 
 Uwb::Uwb(int id , Eigen::VectorXd xyz) : id_(id), xyz_(xyz){}
 
@@ -29,6 +29,14 @@ Uwbanchor::Uwbanchor(int id , Eigen::VectorXd xyz, std::array<Eigen::VectorXd,8>
     for (int i = 0; i < sizeof(tag_availabiliy_); i++){
         tag_availabiliy_[i] = false;
     }
+}
+
+void Uwbanchor::revise_xyz_ublox(Eigen::VectorXd xyz_ublox){
+    xyz_ublox_ = xyz_ublox;
+}
+
+Eigen::VectorXd Uwbanchor::get_xyz_ublox(){
+    return xyz_ublox_;
 }
 
 void Uwbanchor::update_availability_range(bool tag_availabiliy, double to_tag_range, int id){

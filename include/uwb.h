@@ -1,6 +1,7 @@
 #ifndef UWB_H_
 #define UWB_H_
 #include <Eigen/Dense>
+#include <iostream>
 
 class Uwb{
     private:
@@ -18,6 +19,7 @@ class Uwb{
 
 class Uwbanchor: public Uwb{
     private:
+        Eigen::VectorXd xyz_ublox_;
         bool (*t_a_)[8];
         double (*t_t_r_)[8];
         std::array<bool,8> tag_availabiliy_;
@@ -26,6 +28,8 @@ class Uwbanchor: public Uwb{
 
     public:
         Uwbanchor(int id , Eigen::VectorXd xyz, std::array<Eigen::VectorXd,8> tag_location);
+        void revise_xyz_ublox(Eigen::VectorXd xyz_ublox);
+        Eigen::VectorXd get_xyz_ublox();
         void update_availability_range(bool tag_availabiliy, double to_tag_range, int id);
         // bool get_tag_availabiliy(int index);
         // double get_to_tag_range(int index);

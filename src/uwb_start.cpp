@@ -1,10 +1,12 @@
-#include <CppLinuxSerial/SerialPort.hpp>
 #include <iostream>
 #include <unistd.h>
 #include <pthread.h>
-#include <uwb_YCHIOT/uwb_raw.h>
-#include "ros/ros.h"
 #include <signal.h>
+
+#include "ros/ros.h"
+
+#include <CppLinuxSerial/SerialPort.hpp>
+#include <uwb_YCHIOT/uwb_raw.h>
 
 pthread_mutex_t mutex;
 uwb_YCHIOT::uwb_raw uwb_data;
@@ -85,7 +87,7 @@ static void *Reader_handler(void *arguments)
 
         uwb_data = Fill_in_topic(message_data);
         if (uwb_data.MID == "mc"){
-            std::cout << "\033[33m" << uwb_data << "\033[0m" << std::endl;
+            // std::cout << "\033[33m" << uwb_data << "\033[0m" << std::endl;
             args->arg2.publish(uwb_data);
         }
     }

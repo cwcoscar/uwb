@@ -1,13 +1,20 @@
 <!---->
 <launch>
   <arg name="ublox_fix_topic" value="/ublox_f9k/fix"/>
+  <arg name="ini_mode" value="1"/> <!--1 = manual, 2 = ublox, 3 = Once ublox updates, use ublox fix. Otherwise use UWB-->
   <arg name="ini_x" value="45"/>
   <arg name="ini_y" value="175"/>
   <arg name="ini_z" value="-60"/>
+  <arg name="weight_mode" value="1"/> <!--1 = manual, 2 = time-varied-->
+  <arg name="enabled_anchor" value="1 0 0 0"/> <!-- 0 = disabled 1 = enabled, from 0th to 3th-->
+  
   <node name="uwb_positioning" pkg="uwb_YCHIOT" type="uwb_positioning" output="screen">
     <param name="ublox_fix_topic" value="$(arg ublox_fix_topic)"/>
+    <param name="ini_mode" value="$(arg ini_mode)" type="int"/>
     <param name="ini_x" value="$(arg ini_x)" type="double"/>
     <param name="ini_y" value="$(arg ini_y)" type="double"/>
     <param name="ini_z" value="$(arg ini_z)" type="double"/>
+    <param name="weight_mode" value="$(arg weight_mode)" type="int"/>
+    <param name="enabled_anchor" value="$(arg enabled_anchor)"/>
   </node>
 </launch>
