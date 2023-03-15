@@ -6,7 +6,19 @@
   <arg name="ini_y" value="175"/>
   <arg name="ini_z" value="-60"/>
   <arg name="weight_mode" value="1"/> <!--1 = manual, 2 = time-varied-->
-  <arg name="enabled_anchor" value="1 0 0 0"/> <!-- 0 = disabled 1 = enabled, from 0th to 3th-->
+  <arg name="enabled_anchor" value="1 0 0 0"/> <!-- 0 = disabled 1 = enabled, from 0th to 3rd-->
+  <arg name="T0_x" value="59.0414"/>
+  <arg name="T0_y" value="194.1903"/>
+  <arg name="T0_z" value="-47.7806"/>
+  <arg name="T1_x" value="43.1544"/>
+  <arg name="T1_y" value="194.8983"/>
+  <arg name="T1_z" value="-47.5321"/>
+  <arg name="T2_x" value="0"/>
+  <arg name="T2_y" value="10"/>
+  <arg name="T2_z" value="0"/>
+  <arg name="T3_x" value="51.7699"/>
+  <arg name="T3_y" value="184.3686"/>
+  <arg name="T3_z" value="-46.6854"/>
   
   <node name="uwb_positioning" pkg="uwb_YCHIOT" type="uwb_positioning" output="screen">
     <param name="ublox_fix_topic" value="$(arg ublox_fix_topic)"/>
@@ -16,5 +28,17 @@
     <param name="ini_z" value="$(arg ini_z)" type="double"/>
     <param name="weight_mode" value="$(arg weight_mode)" type="int"/>
     <param name="enabled_anchor" value="$(arg enabled_anchor)"/>
+    <param name="T0_x" value="$(arg T0_x)" type="double"/>
+    <param name="T0_y" value="$(arg T0_y)" type="double"/>
+    <param name="T0_z" value="$(arg T0_z)" type="double"/>
+    <param name="T1_x" value="$(arg T1_x)" type="double"/>
+    <param name="T1_y" value="$(arg T1_y)" type="double"/>
+    <param name="T1_y" value="$(arg T1_y)" type="double"/>
+    <param name="T2_x" value="$(arg T2_x)" type="double"/>
+    <param name="T2_y" value="$(arg T2_y)" type="double"/>
+    <param name="T2_z" value="$(arg T2_z)" type="double"/>
+    <param name="T3_x" value="$(arg T3_x)" type="double"/>
+    <param name="T3_y" value="$(arg T3_y)" type="double"/>
+    <param name="T3_y" value="$(arg T3_y)" type="double"/>
   </node>
 </launch>

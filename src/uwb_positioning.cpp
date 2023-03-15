@@ -324,8 +324,11 @@ void Uwbpositioning::Test(){
         for (int i = 0; i < Anchor_number; i++){
             if(enabled_anchor[i] == "1"){
                 std::cout << "\033[32m" << "Anchor number " << i << "\033[0m" << std::endl;
+
                 // Propagate the positioning solution of each anchor
                 Eigen::VectorXd result = Propagate_sol((*A_+i));
+                //
+
                 std::cout << "\033[32m" << "Localization: (" << result[0] << ", " << result[1] << ", " << result[2] << ")" << "\033[0m" << std::endl;
                 topic_data_.header.seq = publish_seq_[i]++;
                 topic_data_.header.stamp = now;
@@ -394,16 +397,37 @@ int main(int argc, char **argv) {
     //Initial position of tags (static stations)
     Eigen::VectorXd location(3);
     std::array<Eigen::VectorXd,Tag_number> tag_location;
-    location << 59.0414, 194.1903, -47.7806;
+
+    if (nh.hasParam("T0_x") && nh.hasParam("T0_y") && nh.hasParam("T0_z")){
+        nh.getParam("T0_x", location[0]);
+        nh.getParam("T0_y", location[1]);
+        nh.getParam("T0_z", location[2]);
+    }
+    else location << 59.0414, 194.1903, -47.7806;
     tag_location[0] = location;
 
-    location << 43.1544, 194.8983, -47.5321;
+    if (nh.hasParam("T1_x") && nh.hasParam("T1_y") && nh.hasParam("T1_z")){
+        nh.getParam("T1_x", location[0]);
+        nh.getParam("T1_y", location[1]);
+        nh.getParam("T1_z", location[2]);
+    }
+    else location << 43.1544, 194.8983, -47.5321;
     tag_location[1] = location;
 
-    location << 0, 10, 0;
+    if (nh.hasParam("T2_x") && nh.hasParam("T2_y") && nh.hasParam("T2_z")){
+        nh.getParam("T2_x", location[0]);
+        nh.getParam("T2_y", location[1]);
+        nh.getParam("T2_z", location[2]);
+    }
+    else location << 0, 10, 0;
     tag_location[2] = location;
 
-    location << 51.7699, 184.3686, -46.6854;
+    if (nh.hasParam("T3_x") && nh.hasParam("T3_y") && nh.hasParam("T3_z")){
+        nh.getParam("T3_x", location[0]);
+        nh.getParam("T3_y", location[1]);
+        nh.getParam("T3_z", location[2]);
+    }
+    else location << 51.7699, 184.3686, -46.6854;
     tag_location[3] = location;
 
     location << 5, 0, 0;
