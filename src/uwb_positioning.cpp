@@ -15,7 +15,8 @@
 
 #define Tag_number 8
 #define Anchor_number 4
-#define threshold_iteration_value 0.001
+#define threshold_iteration_value_2d 0.01 
+#define threshold_iteration_value_3d 2
 #define threshold_iteration_num 7
 #define ini_manual 1
 #define ini_ublox 2
@@ -30,6 +31,7 @@ static const llh_InitTypeDef ee_building = {
 };
 
 typedef struct Positioning_config{
+    int fix_mode;
     int ini_mode;
     bool ublox_received = false;
     int weight_mode;
@@ -77,6 +79,15 @@ class Uwbpositioning{
         void Weight_matrix(positioning& variables, Uwbanchor* A); //generate weight as filtering unavailable range
         void Update_estimate(positioning& variables);
         Eigen::VectorXd Propagate_sol(Uwbanchor* A);
+
+        // For 2D
+        void Estimated_range_2d(positioning& variables);
+        void H_matrix_2d(positioning& variables);// (estimate location - fixed tag)/estimated range
+        void Pseudo_Invert_2d(positioning& variables); //pseudo-inverse
+        void Update_estimate_2d(positioning& variables);
+        Eigen::VectorXd Propagate_sol_2d(Uwbanchor* A);
+        //
+
         void fill_tag_location(geometry_msgs::Pose (& tag_location)[Tag_number]);
         void Test();
 };
@@ -107,8 +118,6 @@ void Uwbpositioning::UbloxfixCallback(const sensor_msgs::NavSatFix& msg){
     enu_InitTypeDef enu = lla2enu(ee_building.Lat, ee_building.Lon, ee_building.High, rover.Lat, rover.Lon, rover.High);
     Eigen::VectorXd gnss_pos(3);
     gnss_pos << enu.e, enu.n, enu.u;
-    // std::cout << std::fixed << std::setprecision(3);
-    // std::cout << "ENU: " << enu.e << ", " << enu.n << ", " << enu.u << std::endl;
 
     //Update the intial position of the rover in the algorithm
     for (int i = 0; i < Anchor_number; i++){
@@ -163,9 +172,6 @@ void Uwbpositioning::Weight_matrix(positioning& variables, Uwbanchor* A){
     Eigen::MatrixXd weight = Eigen::MatrixXd::Identity(Tag_number,Tag_number);
     int availabilty_count = 0;
     double secs =ros::Time::now().toSec();
-    // std::cout << std::fixed << std::setprecision(9);
-    // std::cout << "Now time: " << secs << std::endl;
-
     if (positioning_config_.weight_mode == weight_time_varied){
         for (int i = 0; i < Tag_number; i++){
             if (variables.tag_availabiliy[i] == false){
@@ -190,15 +196,15 @@ void Uwbpositioning::Weight_matrix(positioning& variables, Uwbanchor* A){
                 weight(i, i) = 1;
                 availabilty_count++;
                 // If the data hadn't been updated over 1 second, it will be set as unavailable
-                if((secs - tag_receive_time_[i]) > 1){
+                if((secs - tag_receive_time_[i]) > 1.5){
                     A -> revise_tag_availabiliy(i, false);
                 }
             }
         }
     }
-    
     if (availabilty_count < 3){
         std::cout << "\033[31m" << "Only " << availabilty_count << " tags being available : weighting failed !" << "\033[0m" << std::endl;
+        
     }
     variables.weight = weight;
 }
@@ -233,8 +239,8 @@ void Uwbpositioning::Update_estimate(positioning& variables){
         variables.iteration_continue = false;
         std::cout << "\033[31m" << "Iteration times over " << threshold_iteration_num << " !" << "\033[0m" << std::endl;
     }
-    else if (variables.iteration_value < threshold_iteration_value){
-        std::cout << "\033[32m" << "Iteration value < " << threshold_iteration_value << " !" << "\033[0m" << std::endl;
+    else if (variables.iteration_value < threshold_iteration_value_3d){
+        std::cout << "\033[32m" << "Iteration value < " << threshold_iteration_value_3d << " !" << "\033[0m" << std::endl;
         variables.iteration_continue = false;
     }
     else{
@@ -242,7 +248,6 @@ void Uwbpositioning::Update_estimate(positioning& variables){
         variables.estimated_pos = variables.estimated_pos + variables.delta_w;
         variables.iteration_value = variables.delta_w.norm();
         variables.iteration_num++;
-        std::cout << "\033[33m" << "Iteration time : " << variables.iteration_num << " !" << "\033[0m" << std::endl;
         std::cout << "\033[33m" << "Iteration value : " << variables.iteration_value << " !" << "\033[0m" << std::endl;
     }
 }
@@ -287,6 +292,101 @@ Eigen::VectorXd Uwbpositioning::Propagate_sol(Uwbanchor* A){
     }
 }
 
+// For 2D solutions
+
+void Uwbpositioning::Estimated_range_2d(positioning& variables){
+    Eigen::VectorXd initial_xyz = variables.estimated_pos.segment(0,2);
+    Eigen::VectorXd estimated_range(8);
+    for (int i =0; i < Tag_number; i++){
+        estimated_range(i) = Distance(initial_xyz, variables.tag_location[i].segment(0,2));
+    }
+    variables.estimated_range = estimated_range;
+}
+
+void Uwbpositioning::H_matrix_2d(positioning& variables){
+    Eigen::VectorXd initial_xyz = variables.estimated_pos.segment(0,2);
+    Eigen::MatrixXd h_matrix(Tag_number,2);
+    for (int i = 0; i < Tag_number; i++){
+        for (int j = 0; j < 2; j++){
+            h_matrix(i,j) = (initial_xyz(j) - variables.tag_location[i][j])/variables.estimated_range[i];
+        }
+    }
+    variables.h_matrix = h_matrix;
+}
+
+void Uwbpositioning::Pseudo_Invert_2d(positioning& variables){
+    Eigen::MatrixXd Inverse;
+    Inverse = variables.h_matrix.transpose() * variables.weight * variables.h_matrix;
+    double inverse_det = Inverse.determinant();
+    // If determinant is too small, the inverse of the matrix will diverge => invert fail  
+    if (inverse_det < 0.0000000001){
+        variables.invert_fail = true;
+        variables.invert_matrix = Eigen::MatrixXd::Zero(2,8);
+        std::cout << "\033[31m" << "Determinant of (H'AH) is 0 : Invertion failed !" << "\033[0m" << std::endl;
+        std::cout << "\033[33m" << "(H'AH): " << std::endl << Inverse << "\033[0m" << std::endl;
+    }
+    else {
+        variables.invert_matrix  = Inverse.inverse() * variables.h_matrix.transpose() * variables.weight;
+    }
+}
+
+void Uwbpositioning::Update_estimate_2d(positioning& variables){
+    if (variables.iteration_num > threshold_iteration_num){
+        variables.iteration_continue = false;
+        std::cout << "\033[31m" << "Iteration times over " << threshold_iteration_num << " !" << "\033[0m" << std::endl;
+    }
+    else if (variables.iteration_value < threshold_iteration_value_2d){
+        std::cout << "\033[32m" << "Iteration value < " << threshold_iteration_value_2d << " !" << "\033[0m" << std::endl;
+        variables.iteration_continue = false;
+    }
+    else{
+        variables.delta_w = variables.invert_matrix * variables.dr_matrix;
+        variables.estimated_pos.segment(0,2) = variables.estimated_pos.segment(0,2) + variables.delta_w;
+        variables.iteration_value = variables.delta_w.norm();
+        variables.iteration_num++;
+        std::cout << "\033[33m" << "Iteration value : " << variables.iteration_value << " !" << "\033[0m" << std::endl;
+    }
+}
+
+Eigen::VectorXd Uwbpositioning::Propagate_sol_2d(Uwbanchor* A){
+    positioning variables;
+    variables.estimated_pos = A -> get_xyz();
+    std::cout << std::fixed << std::setprecision(3);
+    std::cout << "\033[32m" << "Initial ENU : (" << variables.estimated_pos[0] << ", " << variables.estimated_pos[1] << ")\033[0m" << std::endl;
+    variables.tag_availabiliy = A -> get_tag_availabiliy();
+    variables.to_tag_range = A -> get_to_tag_range();
+    variables.tag_location = A -> get_tag_location();
+    variables.invert_fail = false;
+    variables.iteration_continue = true;
+    variables.iteration_num = 0;
+    variables.iteration_value = INT_MAX;
+    // If the iteration had been continued over the threshold times, the iteration will be interrupted
+    while (variables.iteration_continue){
+        Estimated_range_2d(variables);
+        R_matrix(variables);
+        H_matrix_2d(variables);
+        Weight_matrix(variables, A);
+        Pseudo_Invert_2d(variables);
+        // If the invertion of H matrix failed, the iteration will be interrupted 
+        if (variables.invert_fail){
+            break;
+        }
+        else{
+            // Check 2 iterarion thresholds: times and value
+            Update_estimate_2d(variables);
+        }
+    }
+    if (variables.invert_fail == true || variables.iteration_num == 1){
+        return A -> get_xyz();
+    }
+    else{
+        if(positioning_config_.ini_mode == ini_ublox_uwb){
+            A -> revise_xyz(variables.estimated_pos);
+        }
+        return variables.estimated_pos;
+    }
+}
+
 void Uwbpositioning::fill_tag_location(geometry_msgs::Pose (& tag_location)[Tag_number]){
     geometry_msgs::Pose temp;
     std::array<Eigen::VectorXd,Tag_number> tags = (*A_) -> get_tag_location();
@@ -318,17 +418,23 @@ void Uwbpositioning::Test(){
     std::vector<std::string> enabled_anchor = Split(positioning_config_.enabled_anchor, ' ');
 
     std::cout << "Time stamp: " << now << std::endl;
+    std::cout << "Fix Mode: " << positioning_config_.fix_mode << std::endl;
     std::cout << "Initial Mode: " << positioning_config_.ini_mode << std::endl;
     std::cout << "Weight Mode: " << positioning_config_.weight_mode << std::endl;
+
     if(positioning_config_.ini_mode == ini_manual || positioning_config_.ublox_received != true){
         for (int i = 0; i < Anchor_number; i++){
             if(enabled_anchor[i] == "1"){
                 std::cout << "\033[32m" << "Anchor number " << i << "\033[0m" << std::endl;
-
+                Eigen::VectorXd result;
                 // Propagate the positioning solution of each anchor
-                Eigen::VectorXd result = Propagate_sol((*A_+i));
+                if (positioning_config_.fix_mode == 2){
+                    result = Propagate_sol_2d((*A_+i));
+                }
+                else if (positioning_config_.fix_mode == 3){
+                    result = Propagate_sol((*A_+i));
+                }
                 //
-
                 std::cout << "\033[32m" << "Localization: (" << result[0] << ", " << result[1] << ", " << result[2] << ")" << "\033[0m" << std::endl;
                 topic_data_.header.seq = publish_seq_[i]++;
                 topic_data_.header.stamp = now;
@@ -373,10 +479,11 @@ int main(int argc, char **argv) {
     nh.param("ublox_fix_topic", ublox_fix_topic_, std::string("/ublox_f9k/fix"));
 
     // Some parameters used in positioning process
+    nh.param("fix_mode", positioning_config.fix_mode, 2);
     nh.param("ini_mode", positioning_config.ini_mode, 1);
     nh.param("weight_mode", positioning_config.weight_mode, 1);
     nh.param("enabled_anchor", positioning_config.enabled_anchor, std::string("1000"));
-
+    
     // Publishers of navigation solutions
     ros::Publisher pub0 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A0", 1);
     ros::Publisher pub1 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A1", 1);
@@ -471,7 +578,10 @@ int main(int argc, char **argv) {
     }
 
 
-    ros::Rate loop_rate(3);//uwb_calibration update averaging 3.57 Hz  
+    ros::Rate loop_rate(20);
+    // uwb_calibration update averaging 3.57 Hz.
+    // If this loop rate is set at a low value, the measurement of the positioning section using will be "too old"(/uwb_calibration will have high delay time).
+    // The threshold is set @ 1 second.
     while (ros::ok()){
         uwbpositioning.Test();
         ros::spinOnce();
