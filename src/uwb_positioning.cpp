@@ -15,7 +15,7 @@
 
 #define Tag_number 8
 #define Anchor_number 4
-#define threshold_iteration_value_2d 0.01 
+#define threshold_iteration_value_2d 0.01
 #define threshold_iteration_value_3d 2
 #define threshold_iteration_num 7
 #define ini_manual 1
@@ -106,6 +106,9 @@ void Uwbpositioning::UwbCalibrationCallback(const uwb_YCHIOT::uwb_raw& msg){
     for (int i = 0; i < Anchor_number; i++){
         (*A_+i) -> update_availability_range(anchor_availabiliy[i], to_anchor_range[i], num_id);
     }
+    // double secs =ros::Time::now().toSec();
+    // std::cout << "t d: " << secs - tag_receive_time_[num_id] << std::endl;
+    // std::cout << "t: " << tag_receive_time_[num_id] << std::endl;
 }
 
 void Uwbpositioning::UbloxfixCallback(const sensor_msgs::NavSatFix& msg){
@@ -207,6 +210,7 @@ void Uwbpositioning::Weight_matrix(positioning& variables, Uwbanchor* A){
         
     }
     variables.weight = weight;
+    // std::cout << "weight: " << weight << std::endl;
 }
 
 // dr = H * dw
@@ -297,10 +301,13 @@ Eigen::VectorXd Uwbpositioning::Propagate_sol(Uwbanchor* A){
 void Uwbpositioning::Estimated_range_2d(positioning& variables){
     Eigen::VectorXd initial_xyz = variables.estimated_pos.segment(0,2);
     Eigen::VectorXd estimated_range(8);
+    // std::cout << "initial_xyz: " << initial_xyz << std::endl;
     for (int i =0; i < Tag_number; i++){
+        // std::cout << "tag_location " << i << " " << variables.tag_location[i].segment(0,2) << std::endl;
         estimated_range(i) = Distance(initial_xyz, variables.tag_location[i].segment(0,2));
     }
     variables.estimated_range = estimated_range;
+    // std::cout << "estimated_range: " << estimated_range << std::endl;
 }
 
 void Uwbpositioning::H_matrix_2d(positioning& variables){
@@ -312,21 +319,24 @@ void Uwbpositioning::H_matrix_2d(positioning& variables){
         }
     }
     variables.h_matrix = h_matrix;
+    // std::cout << "h_matrix: " << h_matrix << std::endl;
 }
 
 void Uwbpositioning::Pseudo_Invert_2d(positioning& variables){
     Eigen::MatrixXd Inverse;
     Inverse = variables.h_matrix.transpose() * variables.weight * variables.h_matrix;
+    // std::cout << "H'AH: " << Inverse << std::endl;
     double inverse_det = Inverse.determinant();
     // If determinant is too small, the inverse of the matrix will diverge => invert fail  
     if (inverse_det < 0.0000000001){
         variables.invert_fail = true;
         variables.invert_matrix = Eigen::MatrixXd::Zero(2,8);
         std::cout << "\033[31m" << "Determinant of (H'AH) is 0 : Invertion failed !" << "\033[0m" << std::endl;
-        std::cout << "\033[33m" << "(H'AH): " << std::endl << Inverse << "\033[0m" << std::endl;
+        // std::cout << "\033[33m" << "(H'AH): " << std::endl << Inverse << "\033[0m" << std::endl;
     }
     else {
         variables.invert_matrix  = Inverse.inverse() * variables.h_matrix.transpose() * variables.weight;
+        // std::cout << "(H'AH)-1H'A: " << variables.invert_matrix << std::endl;
     }
 }
 
@@ -416,11 +426,11 @@ void Uwbpositioning::Test(){
     geometry_msgs::Pose tag_location[Tag_number];
     fill_tag_location(tag_location);
     std::vector<std::string> enabled_anchor = Split(positioning_config_.enabled_anchor, ' ');
-
     std::cout << "Time stamp: " << now << std::endl;
     std::cout << "Fix Mode: " << positioning_config_.fix_mode << std::endl;
     std::cout << "Initial Mode: " << positioning_config_.ini_mode << std::endl;
     std::cout << "Weight Mode: " << positioning_config_.weight_mode << std::endl;
+    std::cout << "Enabled anchor: " << enabled_anchor[0] << enabled_anchor[1] << enabled_anchor[2] << enabled_anchor[3] << std::endl;
 
     if(positioning_config_.ini_mode == ini_manual || positioning_config_.ublox_received != true){
         for (int i = 0; i < Anchor_number; i++){
@@ -509,6 +519,7 @@ int main(int argc, char **argv) {
         nh.getParam("T0_x", location[0]);
         nh.getParam("T0_y", location[1]);
         nh.getParam("T0_z", location[2]);
+        // std::cout << "tag_location 0: " << location.segment(0,2) << std::endl;
     }
     else location << 59.0414, 194.1903, -47.7806;
     tag_location[0] = location;
@@ -517,6 +528,7 @@ int main(int argc, char **argv) {
         nh.getParam("T1_x", location[0]);
         nh.getParam("T1_y", location[1]);
         nh.getParam("T1_z", location[2]);
+        // std::cout << "tag_location 1: " << location.segment(0,2) << std::endl;
     }
     else location << 43.1544, 194.8983, -47.5321;
     tag_location[1] = location;
@@ -525,6 +537,7 @@ int main(int argc, char **argv) {
         nh.getParam("T2_x", location[0]);
         nh.getParam("T2_y", location[1]);
         nh.getParam("T2_z", location[2]);
+        // std::cout << "tag_location 2: " << location.segment(0,2) << std::endl;
     }
     else location << 0, 10, 0;
     tag_location[2] = location;
@@ -533,6 +546,7 @@ int main(int argc, char **argv) {
         nh.getParam("T3_x", location[0]);
         nh.getParam("T3_y", location[1]);
         nh.getParam("T3_z", location[2]);
+        // std::cout << "tag_location 3: " << location.segment(0,2) << std::endl;
     }
     else location << 51.7699, 184.3686, -46.6854;
     tag_location[3] = location;
