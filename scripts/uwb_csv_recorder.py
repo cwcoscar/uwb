@@ -10,9 +10,9 @@ row_T0 = 1
 row_T1 = 1
 row_T2 = 1
 row_T3 = 1
-dir = '/home/meclab/Desktop/Bag/test_uwb/20221018/'
+dir = '/home/mec/Desktop/cwc/20230311/'
 # distance = '32m'
-distance = 'outfield_uwb_03'
+distance = '20230312_uwbraw_T2T3_60m'
 
 def signal_handler(sig, frame):
     global row_T0

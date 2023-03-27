@@ -9,18 +9,18 @@
   <arg name="weight_mode" value="1"/> <!--1 = manual, 2 = time-varied-->
   <arg name="enabled_anchor" value="1 0 0 0"/> <!-- 0 = disabled 1 = enabled, from 0th to 3rd-->
 
-  <arg name="T0_x" value="59.0414"/>
-  <arg name="T0_y" value="194.1903"/>
-  <arg name="T0_z" value="-47.7806"/>
-  <arg name="T1_x" value="43.1544"/>
-  <arg name="T1_y" value="194.8983"/>
-  <arg name="T1_z" value="-47.5321"/>
-  <arg name="T2_x" value="0"/>
-  <arg name="T2_y" value="10"/>
-  <arg name="T2_z" value="0"/>
-  <arg name="T3_x" value="51.7699"/>
-  <arg name="T3_y" value="184.3686"/>
-  <arg name="T3_z" value="-46.6854"/>
+  <arg name="T0_x" value="57.3225"/>
+  <arg name="T0_y" value="208.5161"/>
+  <arg name="T0_z" value="-48.0107"/>
+  <arg name="T1_x" value="62.7664"/>
+  <arg name="T1_y" value="253.4896"/>
+  <arg name="T1_z" value="-47.9454"/>
+  <arg name="T2_x" value="25.8886"/>
+  <arg name="T2_y" value="207.8736"/>
+  <arg name="T2_z" value="-48.0045"/>
+  <arg name="T3_x" value="35.0541"/>
+  <arg name="T3_y" value="256.1917"/>
+  <arg name="T3_z" value="-47.8913"/>
   
   <node name="uwb_positioning" pkg="uwb_YCHIOT" type="uwb_positioning" output="screen">
     <param name="ublox_fix_topic" value="$(arg ublox_fix_topic)"/>
