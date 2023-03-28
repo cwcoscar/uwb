@@ -4,6 +4,7 @@
 #include "mec_transformation.h" //For llh enu tf
 #include <uwb_YCHIOT/uwb_raw.h>
 #include <uwb_YCHIOT/uwb_fix.h>
+#include <uwb_YCHIOT/uwb_tag.h>
 
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
@@ -423,8 +424,6 @@ void Uwbpositioning::Test(){
     tf::Transform transform;
     tf::Quaternion current_q;
     ros::Time now = ros::Time::now();
-    geometry_msgs::Pose tag_location[Tag_number];
-    fill_tag_location(tag_location);
     std::vector<std::string> enabled_anchor = Split(positioning_config_.enabled_anchor, ' ');
     std::cout << "Time stamp: " << now << std::endl;
     std::cout << "Fix Mode: " << positioning_config_.fix_mode << std::endl;
@@ -455,9 +454,6 @@ void Uwbpositioning::Test(){
                 topic_data_.roll = 0;
                 topic_data_.pitch = 0;
                 topic_data_.yaw = 0;
-                for (int i = 0 ; i < Tag_number; i++){
-                    topic_data_.tag_location.push_back(tag_location[i]);
-                }
                 (*pub_+i) -> publish(topic_data_); 
 
                 current_q.setRPY(topic_data_.roll, topic_data_.pitch, topic_data_.yaw);
@@ -500,6 +496,8 @@ int main(int argc, char **argv) {
     ros::Publisher pub2 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A2", 1);
     ros::Publisher pub3 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A3", 1);
     ros::Publisher pub[Anchor_number] = {pub0, pub1, pub2, pub3};
+
+    ros::Publisher pub_tag = n.advertise<uwb_YCHIOT::uwb_tag>("/uwb_tag_location", 1);
 
     // Initial position of vehicle (baselink)
     // If ublox fix is received, the data will be overrided.
@@ -591,12 +589,27 @@ int main(int argc, char **argv) {
         ros::Subscriber sub1 = n.subscribe(ublox_fix_topic_, 1, &Uwbpositioning::UbloxfixCallback, &uwbpositioning);
     }
 
-
+    // Publish tag location once
+    uwb_YCHIOT::uwb_tag topic_data;
+    geometry_msgs::Pose tag_locations[Tag_number];
+    for (int j = 0 ; j < Tag_number; j++){
+        tag_locations[j].position.x = tag_location[j][0];
+        tag_locations[j].position.y = tag_location[j][1];
+        tag_locations[j].position.z = tag_location[j][2];
+        topic_data.tag_location.push_back(tag_locations[j]);
+    }
+    
     ros::Rate loop_rate(20);
+    int amount = 0;
     // uwb_calibration update averaging 3.57 Hz.
     // If this loop rate is set at a low value, the measurement of the positioning section using will be "too old"(/uwb_calibration will have high delay time).
-    // The threshold is set @ 1 second.
+    // The threshold is set @ 1.5 second.
     while (ros::ok()){
+        if (amount >= 100){
+            pub_tag.publish(topic_data);
+            amount = 0;
+        }
+        else amount++;
         uwbpositioning.Test();
         ros::spinOnce();
         loop_rate.sleep();
