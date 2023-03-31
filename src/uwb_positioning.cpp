@@ -16,7 +16,7 @@
 
 #define Tag_number 8
 #define Anchor_number 4
-#define threshold_iteration_value_2d 0.01
+#define threshold_iteration_value_2d 0.00001
 #define threshold_iteration_value_3d 2
 #define threshold_iteration_num 7
 #define ini_manual 1
@@ -260,7 +260,7 @@ void Uwbpositioning::Update_estimate(positioning& variables){
 Eigen::VectorXd Uwbpositioning::Propagate_sol(Uwbanchor* A){
     positioning variables;
     variables.estimated_pos = A -> get_xyz();
-    std::cout << std::fixed << std::setprecision(3);
+    std::cout << std::fixed << std::setprecision(6);
     std::cout << "\033[32m" << "Initial ENU : (" << variables.estimated_pos[0] << ", " 
     << variables.estimated_pos[1] << ", " << variables.estimated_pos[2] << ")\033[0m" << std::endl;
     variables.tag_availabiliy = A -> get_tag_availabiliy();
@@ -362,7 +362,7 @@ void Uwbpositioning::Update_estimate_2d(positioning& variables){
 Eigen::VectorXd Uwbpositioning::Propagate_sol_2d(Uwbanchor* A){
     positioning variables;
     variables.estimated_pos = A -> get_xyz();
-    std::cout << std::fixed << std::setprecision(3);
+    std::cout << std::fixed << std::setprecision(6);
     std::cout << "\033[32m" << "Initial ENU : (" << variables.estimated_pos[0] << ", " << variables.estimated_pos[1] << ")\033[0m" << std::endl;
     variables.tag_availabiliy = A -> get_tag_availabiliy();
     variables.to_tag_range = A -> get_to_tag_range();
@@ -431,7 +431,7 @@ void Uwbpositioning::Test(){
     std::cout << "Weight Mode: " << positioning_config_.weight_mode << std::endl;
     std::cout << "Enabled anchor: " << enabled_anchor[0] << enabled_anchor[1] << enabled_anchor[2] << enabled_anchor[3] << std::endl;
 
-    if(positioning_config_.ini_mode == ini_manual || positioning_config_.ublox_received != true){
+    if(positioning_config_.ini_mode == ini_manual || positioning_config_.ublox_received == true){
         for (int i = 0; i < Anchor_number; i++){
             if(enabled_anchor[i] == "1"){
                 std::cout << "\033[32m" << "Anchor number " << i << "\033[0m" << std::endl;
@@ -585,8 +585,9 @@ int main(int argc, char **argv) {
 
     // Subscribers of UWB ranging data and ublox fix
     ros::Subscriber sub = n.subscribe("/uwb_calibration", 1, &Uwbpositioning::UwbCalibrationCallback, &uwbpositioning);
+    ros::Subscriber sub1;
     if(positioning_config.ini_mode != ini_manual){
-        ros::Subscriber sub1 = n.subscribe(ublox_fix_topic_, 1, &Uwbpositioning::UbloxfixCallback, &uwbpositioning);
+        sub1 = n.subscribe(ublox_fix_topic_, 1, &Uwbpositioning::UbloxfixCallback, &uwbpositioning);
     }
 
     // Publish tag location once
@@ -599,7 +600,7 @@ int main(int argc, char **argv) {
         topic_data.tag_location.push_back(tag_locations[j]);
     }
     
-    ros::Rate loop_rate(20);
+    ros::Rate loop_rate(35);
     int amount = 0;
     // uwb_calibration update averaging 3.57 Hz.
     // If this loop rate is set at a low value, the measurement of the positioning section using will be "too old"(/uwb_calibration will have high delay time).
