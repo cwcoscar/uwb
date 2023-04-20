@@ -1,100 +1,14 @@
-#include "ros/ros.h"
-
-#include "uwb.h"
-#include "mec_transformation.h" //For llh enu tf
-#include <uwb_YCHIOT/uwb_raw.h>
-#include <uwb_YCHIOT/uwb_fix.h>
-#include <uwb_YCHIOT/uwb_tag.h>
-
-#include <tf/tf.h>
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_datatypes.h>
-
-#include <sensor_msgs/NavSatFix.h>
-
-#include <geometry_msgs/Pose.h>
-
-#define Tag_number 8
-#define Anchor_number 4
-#define threshold_iteration_value_2d 0.00001
-#define threshold_iteration_value_3d 2
-#define threshold_iteration_num 7
-#define ini_manual 1
-#define ini_ublox 2
-#define ini_ublox_uwb 3
-#define weight_manual 1
-#define weight_time_varied 2
-
-static const llh_InitTypeDef ee_building = {
-        .Lat = 22.99665875,
-        .Lon = 120.222584889,
-        .High = 98.211
-};
-
-typedef struct Positioning_config{
-    int fix_mode;
-    int ini_mode;
-    bool ublox_received = false;
-    int weight_mode;
-    std::string enabled_anchor;
-}config;
-
-typedef struct Positioning_param{
-    std::array<bool,8> tag_availabiliy;
-    std::array<double,8> to_tag_range;
-    std::array<Eigen::VectorXd,8> tag_location;
-    Eigen::VectorXd estimated_pos;
-    Eigen::VectorXd estimated_range;
-    Eigen::MatrixXd dr_matrix;
-    Eigen::MatrixXd h_matrix;
-    Eigen::MatrixXd invert_matrix;
-    bool invert_fail;
-    Eigen::MatrixXd weight;
-    Eigen::MatrixXd delta_w;
-    bool iteration_continue;
-    double iteration_value;
-    double iteration_num;
-}positioning;
-
-class Uwbpositioning{
-    private:
-        Uwbanchor (*A_)[Anchor_number];
-        Uwbtag (*T_)[Tag_number];
-        config positioning_config_;
-        std::array<double,8> tag_receive_time_;
-        uwb_YCHIOT::uwb_fix topic_data_;
-        ros::Publisher (*pub_)[Anchor_number];
-        tf::TransformBroadcaster br_;
-        std::array<int,Anchor_number> publish_seq_={0};
-        
-        
-    public:
-        Uwbpositioning(ros::Publisher (& pub)[Anchor_number], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config);
-        void UwbCalibrationCallback(const uwb_YCHIOT::uwb_raw& msg);
-        void UbloxfixCallback(const sensor_msgs::NavSatFix& msg);
-        double Distance(Eigen::VectorXd A, Eigen::VectorXd T);
-        void Estimated_range(positioning& variables);
-        void R_matrix(positioning& variables);// (measured range - estimated range) from each fixed tags
-        void H_matrix(positioning& variables);// (estimate location - fixed tag)/estimated range
-        void Pseudo_Invert(positioning& variables); //pseudo-inverse
-        void Weight_matrix(positioning& variables, Uwbanchor* A); //generate weight as filtering unavailable range
-        void Update_estimate(positioning& variables);
-        Eigen::VectorXd Propagate_sol(Uwbanchor* A);
-
-        // For 2D
-        void Estimated_range_2d(positioning& variables);
-        void H_matrix_2d(positioning& variables);// (estimate location - fixed tag)/estimated range
-        void Pseudo_Invert_2d(positioning& variables); //pseudo-inverse
-        void Update_estimate_2d(positioning& variables);
-        Eigen::VectorXd Propagate_sol_2d(Uwbanchor* A);
-        //
-
-        void fill_tag_location(geometry_msgs::Pose (& tag_location)[Tag_number]);
-        void Test();
-};
+#include "coordinate_mat_transformation.h" //For llh enu tf
+#include "uwb_positioning.h"
 
 Uwbpositioning::Uwbpositioning(ros::Publisher (& pub)[Anchor_number], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config) 
-: pub_(&pub), A_(&A), T_(&T), positioning_config_(positioning_config){}
+: pub_(&pub), A_(&A), T_(&T), positioning_config_(positioning_config){
+    uwb_YCHIOT::uwb_fix ini_fix;
+    ini_fix.header.frame_id = "ini";
+    for (int i = 0; i < Anchor_number; i++){
+        (*A_+i) -> update_last_fix(ini_fix);
+    }
+}
 
 void Uwbpositioning::UwbCalibrationCallback(const uwb_YCHIOT::uwb_raw& msg){
     int num_id = msg.Tag_id;
@@ -110,18 +24,19 @@ void Uwbpositioning::UwbCalibrationCallback(const uwb_YCHIOT::uwb_raw& msg){
     // double secs =ros::Time::now().toSec();
     // std::cout << "t d: " << secs - tag_receive_time_[num_id] << std::endl;
     // std::cout << "t: " << tag_receive_time_[num_id] << std::endl;
+    if (num_id == 3){Test();}
 }
 
 void Uwbpositioning::UbloxfixCallback(const sensor_msgs::NavSatFix& msg){
-    llh_InitTypeDef rover = {
-        .Lat = msg.latitude,
-        .Lon = msg.longitude,
-        .High = msg.altitude
-    };
+    Eigen::Vector3d rover(msg.latitude, msg.longitude, msg.altitude);
+    Eigen::Vector3d ref_lla(NCKUEE_LATITUDE, NCKUEE_LONGITUDE, NCKUEE_HEIGHT);
+
     //Transform the LLH of rover into ENU based on the LLH of EE building
-    enu_InitTypeDef enu = lla2enu(ee_building.Lat, ee_building.Lon, ee_building.High, rover.Lat, rover.Lon, rover.High);
-    Eigen::VectorXd gnss_pos(3);
-    gnss_pos << enu.e, enu.n, enu.u;
+    Eigen::Vector3d gnss_pos = coordinate_mat_transformation::lla2enu(rover, ref_lla);
+    // add error
+    // gnss_pos(0) = gnss_pos(0) - 10;
+    // gnss_pos(1) = gnss_pos(1) - 10;
+
 
     //Update the intial position of the rover in the algorithm
     for (int i = 0; i < Anchor_number; i++){
@@ -398,17 +313,6 @@ Eigen::VectorXd Uwbpositioning::Propagate_sol_2d(Uwbanchor* A){
     }
 }
 
-void Uwbpositioning::fill_tag_location(geometry_msgs::Pose (& tag_location)[Tag_number]){
-    geometry_msgs::Pose temp;
-    std::array<Eigen::VectorXd,Tag_number> tags = (*A_) -> get_tag_location();
-    for (int i = 0; i < Tag_number; i++){
-        temp.position.x = tags[i][0];
-        temp.position.y = tags[i][1];
-        temp.position.z = tags[i][2];
-        tag_location[i] = temp;
-    }
-}
-
 const std::vector<std::string> Split(const std::string &str, const char &delimiter) {
     std::vector<std::string> result;
     std::stringstream ss(str);
@@ -420,21 +324,90 @@ const std::vector<std::string> Split(const std::string &str, const char &delimit
     return result;
 }
 
-void Uwbpositioning::Test(){
-    tf::Transform transform;
-    tf::Quaternion current_q;
-    ros::Time now = ros::Time::now();
+void Uwbpositioning::show_config(){
     std::vector<std::string> enabled_anchor = Split(positioning_config_.enabled_anchor, ' ');
-    std::cout << "Time stamp: " << now << std::endl;
+    std::cout << "Time stamp: " << ros::Time::now() << std::endl;
     std::cout << "Fix Mode: " << positioning_config_.fix_mode << std::endl;
     std::cout << "Initial Mode: " << positioning_config_.ini_mode << std::endl;
     std::cout << "Weight Mode: " << positioning_config_.weight_mode << std::endl;
     std::cout << "Enabled anchor: " << enabled_anchor[0] << enabled_anchor[1] << enabled_anchor[2] << enabled_anchor[3] << std::endl;
+}
+
+Eigen::Vector3d Uwbpositioning::estimate_velocity(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu, double time_interval){
+    return (now_enu - last_enu)/time_interval;;
+}
+
+Eigen::Vector3d Uwbpositioning::estimate_orientation(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu){
+    Eigen::Vector3d att_enu;
+    Eigen::Vector3d diff_enu = now_enu - last_enu;
+
+    // z-axis(up)
+    if (atan2(diff_enu(0),diff_enu(1)) > 0){
+        att_enu(2) = 360 - coordinate_mat_transformation::rad2Deg(atan2(diff_enu(0),diff_enu(1)));
+    }
+    else if (atan2(diff_enu(0),diff_enu(1)) < 0){
+        att_enu(2) = -coordinate_mat_transformation::rad2Deg(atan2(diff_enu(0),diff_enu(1)));
+    }
+    else att_enu(2) = coordinate_mat_transformation::rad2Deg(atan2(diff_enu(0),diff_enu(1)));
+
+    // x-axis(east)
+    att_enu(0) = asin(diff_enu(2));
+
+    // y-axis(north)
+    // unable to calculate from only a vector
+    att_enu(1) = 0;
+
+    return att_enu;
+}
+
+void Uwbpositioning::Publish_uwb(uwb_YCHIOT::uwb_fix &now_fix, Eigen::VectorXd now_enu, int A_num){
+    Eigen::Vector3d ref_lla(NCKUEE_LATITUDE, NCKUEE_LONGITUDE, NCKUEE_HEIGHT);
+    ros::Time now = ros::Time::now();
+
+    now_fix.header.stamp = now;
+    now_fix.header.frame_id = "uwb_A" + std::to_string(A_num);
+
+    Eigen::VectorXd result_lla = coordinate_mat_transformation::enu2Geodetic(now_enu ,ref_lla);
+    now_fix.latitude = result_lla[0];
+    now_fix.longitude = result_lla[1];
+    now_fix.altitude = result_lla[2];
+
+    uwb_YCHIOT::uwb_fix last_fix = (*A_+A_num) -> get_last_fix();
+    if (last_fix.header.frame_id != "ini"){
+        Eigen::Vector3d last_rover(last_fix.latitude, last_fix.longitude, last_fix.altitude);
+        Eigen::Vector3d last_enu = coordinate_mat_transformation::lla2enu(last_rover, ref_lla);
+        double time_interval = (now - last_fix.header.stamp).toSec();
+
+        Eigen::Vector3d result_v_enu = estimate_velocity(now_enu, last_enu, time_interval);
+        now_fix.velocity_e = result_v_enu[0];
+        now_fix.velocity_n = result_v_enu[1];
+        now_fix.velocity_u = result_v_enu[2];
+
+        Eigen::Vector3d att_enu = estimate_orientation(now_enu, last_enu);
+        now_fix.att_e = att_enu(0);
+        now_fix.att_n = att_enu(1);
+        now_fix.att_u = att_enu(2);
+    }
+    (*pub_+A_num) -> publish(now_fix);
+}
+
+void Uwbpositioning::send_tf(uwb_YCHIOT::uwb_fix now_fix, Eigen::Vector3d now_enu, int A_num){
+    tf::Transform transform;
+    tf::Quaternion current_q;
+
+    current_q.setRPY(now_fix.att_n, now_fix.att_e, -now_fix.att_u);
+    transform.setOrigin(tf::Vector3(now_enu(0), now_enu(1), now_enu(2)));
+    transform.setRotation(current_q);
+    br_.sendTransform(tf::StampedTransform(transform, now_fix.header.stamp, "/map", "uwb_A" + std::to_string(A_num)));
+}
+
+void Uwbpositioning::Test(){
+    show_config();
+    std::vector<std::string> enabled_anchor = Split(positioning_config_.enabled_anchor, ' ');
 
     if(positioning_config_.ini_mode == ini_manual || positioning_config_.ublox_received == true){
         for (int i = 0; i < Anchor_number; i++){
             if(enabled_anchor[i] == "1"){
-                std::cout << "\033[32m" << "Anchor number " << i << "\033[0m" << std::endl;
                 Eigen::VectorXd result;
                 // Propagate the positioning solution of each anchor
                 if (positioning_config_.fix_mode == 2){
@@ -443,24 +416,16 @@ void Uwbpositioning::Test(){
                 else if (positioning_config_.fix_mode == 3){
                     result = Propagate_sol((*A_+i));
                 }
-                //
+                std::cout << "\033[32m" << "Anchor number " << i << "\033[0m" << std::endl;
                 std::cout << "\033[32m" << "Localization: (" << result[0] << ", " << result[1] << ", " << result[2] << ")" << "\033[0m" << std::endl;
-                topic_data_.header.seq = publish_seq_[i]++;
-                topic_data_.header.stamp = now;
-                topic_data_.header.frame_id = "uwb_A" + std::to_string(i);
-                topic_data_.x = result[0];
-                topic_data_.y = result[1];
-                topic_data_.z = result[2];
-                topic_data_.roll = 0;
-                topic_data_.pitch = 0;
-                topic_data_.yaw = 0;
-                (*pub_+i) -> publish(topic_data_); 
 
-                current_q.setRPY(topic_data_.roll, topic_data_.pitch, topic_data_.yaw);
-                transform.setOrigin(tf::Vector3(topic_data_.x, topic_data_.y, topic_data_.z));
-                transform.setRotation(current_q);
-                br_.sendTransform(tf::StampedTransform(transform, now, "/map", "uwb_A" + std::to_string(i)));
+                // Publish UWB solution and send tf
+                uwb_YCHIOT::uwb_fix now_fix;
+                Publish_uwb(now_fix, result, i);
+                send_tf(now_fix, result,i);
+                (*A_+i) -> update_last_fix(now_fix);
 
+                // next Anchor
                 if (i < Anchor_number-1){
                     std::cout << "\033[32m" << "---" << "\033[0m" << std::endl;
                 }
@@ -469,150 +434,7 @@ void Uwbpositioning::Test(){
         std::cout << "--------------------" << std::endl;
     }
     else{
-        std::cout << "Waiting for the first Ublox fix" << std::endl;
+        std::cout << "\033[33m" << "Waiting for the first Ublox fix" << "\033[0m" << std::endl;
         std::cout << "--------------------" << std::endl;
-    }
-}
-
-int main(int argc, char **argv) {
-    std::string ublox_fix_topic_;
-    config positioning_config;
-
-    ros::init(argc, argv, "uwb_positioning");
-    ros::NodeHandle n;
-    ros::NodeHandle nh("~");
-
-    nh.param("ublox_fix_topic", ublox_fix_topic_, std::string("/ublox_f9k/fix"));
-
-    // Some parameters used in positioning process
-    nh.param("fix_mode", positioning_config.fix_mode, 2);
-    nh.param("ini_mode", positioning_config.ini_mode, 1);
-    nh.param("weight_mode", positioning_config.weight_mode, 1);
-    nh.param("enabled_anchor", positioning_config.enabled_anchor, std::string("1000"));
-    
-    // Publishers of navigation solutions
-    ros::Publisher pub0 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A0", 1);
-    ros::Publisher pub1 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A1", 1);
-    ros::Publisher pub2 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A2", 1);
-    ros::Publisher pub3 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A3", 1);
-    ros::Publisher pub[Anchor_number] = {pub0, pub1, pub2, pub3};
-
-    ros::Publisher pub_tag = n.advertise<uwb_YCHIOT::uwb_tag>("/uwb_tag_location", 1);
-
-    // Initial position of vehicle (baselink)
-    // If ublox fix is received, the data will be overrided.
-    Eigen::VectorXd xyz(3);
-    if (nh.hasParam("ini_x") && nh.hasParam("ini_y") && nh.hasParam("ini_z")){
-        nh.getParam("ini_x", xyz[0]);
-        nh.getParam("ini_y", xyz[1]);
-        nh.getParam("ini_z", xyz[2]);
-    }
-    else xyz << 45, 175, -60;
-
-    //Initial position of tags (static stations)
-    Eigen::VectorXd location(3);
-    std::array<Eigen::VectorXd,Tag_number> tag_location;
-
-    if (nh.hasParam("T0_x") && nh.hasParam("T0_y") && nh.hasParam("T0_z")){
-        nh.getParam("T0_x", location[0]);
-        nh.getParam("T0_y", location[1]);
-        nh.getParam("T0_z", location[2]);
-        // std::cout << "tag_location 0: " << location.segment(0,2) << std::endl;
-    }
-    else location << 59.0414, 194.1903, -47.7806;
-    tag_location[0] = location;
-
-    if (nh.hasParam("T1_x") && nh.hasParam("T1_y") && nh.hasParam("T1_z")){
-        nh.getParam("T1_x", location[0]);
-        nh.getParam("T1_y", location[1]);
-        nh.getParam("T1_z", location[2]);
-        // std::cout << "tag_location 1: " << location.segment(0,2) << std::endl;
-    }
-    else location << 43.1544, 194.8983, -47.5321;
-    tag_location[1] = location;
-
-    if (nh.hasParam("T2_x") && nh.hasParam("T2_y") && nh.hasParam("T2_z")){
-        nh.getParam("T2_x", location[0]);
-        nh.getParam("T2_y", location[1]);
-        nh.getParam("T2_z", location[2]);
-        // std::cout << "tag_location 2: " << location.segment(0,2) << std::endl;
-    }
-    else location << 0, 10, 0;
-    tag_location[2] = location;
-
-    if (nh.hasParam("T3_x") && nh.hasParam("T3_y") && nh.hasParam("T3_z")){
-        nh.getParam("T3_x", location[0]);
-        nh.getParam("T3_y", location[1]);
-        nh.getParam("T3_z", location[2]);
-        // std::cout << "tag_location 3: " << location.segment(0,2) << std::endl;
-    }
-    else location << 51.7699, 184.3686, -46.6854;
-    tag_location[3] = location;
-
-    location << 5, 0, 0;
-    tag_location[4] = location;
-
-    location << 6, 0, 0;
-    tag_location[5] = location;
-
-    location << 7, 0, 0;
-    tag_location[6] = location;
-
-    location << 8, 0, 0;
-    tag_location[7] = location;
-
-    // Establish Anchor 0~3
-    Uwbanchor Anchor[Anchor_number] = {
-        Uwbanchor(0, xyz, tag_location),
-        Uwbanchor(1, xyz, tag_location),
-        Uwbanchor(2, xyz, tag_location),
-        Uwbanchor(3, xyz, tag_location)
-    };
-
-    // Establish Tag 0~7
-    Uwbtag Tag[Tag_number] = {
-        Uwbtag(0, tag_location[0]),
-        Uwbtag(1, tag_location[1]),
-        Uwbtag(2, tag_location[2]),
-        Uwbtag(3, tag_location[3]),
-        Uwbtag(4, tag_location[4]),
-        Uwbtag(5, tag_location[5]),
-        Uwbtag(6, tag_location[6]),
-        Uwbtag(7, tag_location[7])
-    };
-
-    Uwbpositioning uwbpositioning(pub, Anchor, Tag, positioning_config);
-
-    // Subscribers of UWB ranging data and ublox fix
-    ros::Subscriber sub = n.subscribe("/uwb_calibration", 1, &Uwbpositioning::UwbCalibrationCallback, &uwbpositioning);
-    ros::Subscriber sub1;
-    if(positioning_config.ini_mode != ini_manual){
-        sub1 = n.subscribe(ublox_fix_topic_, 1, &Uwbpositioning::UbloxfixCallback, &uwbpositioning);
-    }
-
-    // Publish tag location once
-    uwb_YCHIOT::uwb_tag topic_data;
-    geometry_msgs::Pose tag_locations[Tag_number];
-    for (int j = 0 ; j < Tag_number; j++){
-        tag_locations[j].position.x = tag_location[j][0];
-        tag_locations[j].position.y = tag_location[j][1];
-        tag_locations[j].position.z = tag_location[j][2];
-        topic_data.tag_location.push_back(tag_locations[j]);
-    }
-    
-    ros::Rate loop_rate(35);
-    int amount = 0;
-    // uwb_calibration update averaging 3.57 Hz.
-    // If this loop rate is set at a low value, the measurement of the positioning section using will be "too old"(/uwb_calibration will have high delay time).
-    // The threshold is set @ 1.5 second.
-    while (ros::ok()){
-        if (amount >= 100){
-            pub_tag.publish(topic_data);
-            amount = 0;
-        }
-        else amount++;
-        uwbpositioning.Test();
-        ros::spinOnce();
-        loop_rate.sleep();
     }
 }

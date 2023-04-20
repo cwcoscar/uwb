@@ -46,7 +46,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(uwb_positioning src/uwb_positioning.cpp src/uwb.cpp)
+add_executable(uwb_positioning src/main_positioning.cpp src/uwb_positioning.cpp src/uwb.cpp)
 
 target_link_libraries(uwb_positioning ${catkin_LIBRARIES})
 

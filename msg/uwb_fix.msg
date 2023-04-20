@@ -1,9 +1,13 @@
 Header header
 
-float32 x
-float32 y
-float32 z
+float64 latitude
+float64 longitude
+float64 altitude
 
-float32 yaw
-float32 pitch
-float32 roll
+float64 velocity_e
+float64 velocity_n
+float64 velocity_u
+
+float64 att_e
+float64 att_n
+float64 att_u
