@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(uwb_YCHIOT)
+project(uwb)
 
 add_definitions(-std=c++14)
 set(CMAKE_CXX_STANDARD 14)
@@ -46,7 +46,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(uwb_positioning src/main_positioning.cpp src/uwb_positioning.cpp src/uwb.cpp)
+add_executable(uwb_positioning src/main_positioning.cpp src/uwb_positioning.cpp src/uwb_class.cpp)
 
 target_link_libraries(uwb_positioning ${catkin_LIBRARIES})
 

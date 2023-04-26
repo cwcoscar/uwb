@@ -2,8 +2,8 @@
 #include <Eigen/Dense>
 #include <cmath>
 
-#include <uwb_YCHIOT/uwb_raw.h>
-#include <uwb_YCHIOT/uwb_ndt_compare.h>
+#include <uwb/uwbRAW.h>
+#include <uwb/uwb_ndt_compare.h>
 #include <geometry_msgs/PoseStamped.h>
 #include "geometry_msgs/Quaternion.h"
 // #include "tf/transform_datatypes.h"
@@ -22,8 +22,8 @@ Eigen::VectorXd Anchor3_tf(3);
 class UwbCompareNdt{
     private:
         ros::Publisher pub_;
-        uwb_YCHIOT::uwb_raw uwb_data_;
-        uwb_YCHIOT::uwb_ndt_compare uwb_ndt_data_;
+        uwb::uwbRAW uwb_data_;
+        uwb::uwb_ndt_compare uwb_ndt_data_;
         geometry_msgs::PoseStamped pose_data_;
         Eigen::VectorXd F0_;
         Eigen::VectorXd F1_;
@@ -40,7 +40,7 @@ class UwbCompareNdt{
     
     public:
         UwbCompareNdt(std::vector<Eigen::VectorXd> F_position, std::vector<Eigen::VectorXd> A_tf, ros::Publisher pub);
-        void UwbrawCallback(const uwb_YCHIOT::uwb_raw& msg);
+        void UwbrawCallback(const uwb::uwbRAW& msg);
         void NdtposeCallback(const geometry_msgs::PoseStamped& msg);
         double Calculate_distance(Eigen::VectorXd v1, Eigen::VectorXd v2);
         Eigen::VectorXd transform2mapframe(Eigen::VectorXd tf);
@@ -59,7 +59,7 @@ UwbCompareNdt::UwbCompareNdt(std::vector<Eigen::VectorXd> F_position, std::vecto
     tf3_ = A_tf[3];
 }
 
-void UwbCompareNdt::UwbrawCallback(const uwb_YCHIOT::uwb_raw& msg){
+void UwbCompareNdt::UwbrawCallback(const uwb::uwbRAW& msg){
     uwb_data_ = msg;
     Eigen::VectorXd v_ndt(3);
     Eigen::VectorXd v_A0(3);
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "uwb_ndt_compare");
     ros::NodeHandle n;
 
-    ros::Publisher pub = n.advertise<uwb_YCHIOT::uwb_ndt_compare>("uwb_ndt_compare", 1);
+    ros::Publisher pub = n.advertise<uwb::uwb_ndt_compare>("uwb_ndt_compare", 1);
 
     UwbCompareNdt uwbcomparendt(A_position, A_tf, pub);
 

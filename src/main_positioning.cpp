@@ -17,13 +17,13 @@ int main(int argc, char **argv) {
     nh.param("enabled_anchor", positioning_config.enabled_anchor, std::string("1000"));
     
     // Publishers of navigation solutions
-    ros::Publisher pub0 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A0", 1);
-    ros::Publisher pub1 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A1", 1);
-    ros::Publisher pub2 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A2", 1);
-    ros::Publisher pub3 = n.advertise<uwb_YCHIOT::uwb_fix>("/uwb_position/A3", 1);
+    ros::Publisher pub0 = n.advertise<uwb::uwbFIX>("/uwb_position/A0", 1);
+    ros::Publisher pub1 = n.advertise<uwb::uwbFIX>("/uwb_position/A1", 1);
+    ros::Publisher pub2 = n.advertise<uwb::uwbFIX>("/uwb_position/A2", 1);
+    ros::Publisher pub3 = n.advertise<uwb::uwbFIX>("/uwb_position/A3", 1);
     ros::Publisher pub[Anchor_number] = {pub0, pub1, pub2, pub3};
 
-    ros::Publisher pub_tag = n.advertise<uwb_YCHIOT::uwb_tag>("/uwb_tag_location", 1);
+    ros::Publisher pub_tag = n.advertise<uwb::uwbTAG>("/uwb_tag_location", 1);
 
     // Initial position of vehicle (baselink)
     // If ublox fix is received, the data will be overrided.
@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
     }
 
     // Publish tag location once
-    uwb_YCHIOT::uwb_tag topic_data;
+    uwb::uwbTAG topic_data;
     geometry_msgs::Pose tag_locations[Tag_number];
     for (int j = 0 ; j < Tag_number; j++){
         tag_locations[j].position.x = tag_location[j][0];

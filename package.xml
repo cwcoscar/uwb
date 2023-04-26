@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>uwb_YCHIOT</name>
+  <name>uwb</name>
   <version>0.0.0</version>
   <description>The uwb package</description>
 

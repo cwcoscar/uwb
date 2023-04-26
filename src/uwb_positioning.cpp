@@ -3,14 +3,14 @@
 
 Uwbpositioning::Uwbpositioning(ros::Publisher (& pub)[Anchor_number], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config) 
 : pub_(&pub), A_(&A), T_(&T), positioning_config_(positioning_config){
-    uwb_YCHIOT::uwb_fix ini_fix;
+    uwb::uwbFIX ini_fix;
     ini_fix.header.frame_id = "ini";
     for (int i = 0; i < Anchor_number; i++){
         (*A_+i) -> update_last_fix(ini_fix);
     }
 }
 
-void Uwbpositioning::UwbCalibrationCallback(const uwb_YCHIOT::uwb_raw& msg){
+void Uwbpositioning::UwbCalibrationCallback(const uwb::uwbRAW& msg){
     int num_id = msg.Tag_id;
     bool anchor_availabiliy[Anchor_number] = {msg.A0, msg.A1, msg.A2, msg.A3};
     double to_anchor_range[Anchor_number] = {msg.distance_to_A0, msg.distance_to_A1, msg.distance_to_A2, msg.distance_to_A3};
@@ -24,7 +24,9 @@ void Uwbpositioning::UwbCalibrationCallback(const uwb_YCHIOT::uwb_raw& msg){
     // double secs =ros::Time::now().toSec();
     // std::cout << "t d: " << secs - tag_receive_time_[num_id] << std::endl;
     // std::cout << "t: " << tag_receive_time_[num_id] << std::endl;
-    if (num_id == 3){Test();}
+
+    // if (num_id == 3){Test();}
+    Test();
 }
 
 void Uwbpositioning::UbloxfixCallback(const sensor_msgs::NavSatFix& msg){
@@ -97,8 +99,9 @@ void Uwbpositioning::Weight_matrix(positioning& variables, Uwbanchor* A){
                 weight(i, i) = 0;
             }
             else{
-                weight(i, i) = pow(10,tag_receive_time_[i] - secs);
+                weight(i, i) = pow(20,tag_receive_time_[i] - secs);
                 availabilty_count++;
+                // std::cout << "weight:" << std::endl << weight << std::endl;
                 // If the data hadn't been updated over 1 second, it will be set as unavailable
                 if((secs - tag_receive_time_[i]) > 1){
                     A -> revise_tag_availabiliy(i, false);
@@ -360,7 +363,7 @@ Eigen::Vector3d Uwbpositioning::estimate_orientation(Eigen::Vector3d now_enu, Ei
     return att_enu;
 }
 
-void Uwbpositioning::Publish_uwb(uwb_YCHIOT::uwb_fix &now_fix, Eigen::VectorXd now_enu, int A_num){
+void Uwbpositioning::Publish_uwb(uwb::uwbFIX &now_fix, Eigen::VectorXd now_enu, int A_num){
     Eigen::Vector3d ref_lla(NCKUEE_LATITUDE, NCKUEE_LONGITUDE, NCKUEE_HEIGHT);
     ros::Time now = ros::Time::now();
 
@@ -372,7 +375,7 @@ void Uwbpositioning::Publish_uwb(uwb_YCHIOT::uwb_fix &now_fix, Eigen::VectorXd n
     now_fix.longitude = result_lla[1];
     now_fix.altitude = result_lla[2];
 
-    uwb_YCHIOT::uwb_fix last_fix = (*A_+A_num) -> get_last_fix();
+    uwb::uwbFIX last_fix = (*A_+A_num) -> get_last_fix();
     if (last_fix.header.frame_id != "ini"){
         Eigen::Vector3d last_rover(last_fix.latitude, last_fix.longitude, last_fix.altitude);
         Eigen::Vector3d last_enu = coordinate_mat_transformation::lla2enu(last_rover, ref_lla);
@@ -391,7 +394,7 @@ void Uwbpositioning::Publish_uwb(uwb_YCHIOT::uwb_fix &now_fix, Eigen::VectorXd n
     (*pub_+A_num) -> publish(now_fix);
 }
 
-void Uwbpositioning::send_tf(uwb_YCHIOT::uwb_fix now_fix, Eigen::Vector3d now_enu, int A_num){
+void Uwbpositioning::send_tf(uwb::uwbFIX now_fix, Eigen::Vector3d now_enu, int A_num){
     tf::Transform transform;
     tf::Quaternion current_q;
 
@@ -420,7 +423,7 @@ void Uwbpositioning::Test(){
                 std::cout << "\033[32m" << "Localization: (" << result[0] << ", " << result[1] << ", " << result[2] << ")" << "\033[0m" << std::endl;
 
                 // Publish UWB solution and send tf
-                uwb_YCHIOT::uwb_fix now_fix;
+                uwb::uwbFIX now_fix;
                 Publish_uwb(now_fix, result, i);
                 send_tf(now_fix, result,i);
                 (*A_+i) -> update_last_fix(now_fix);

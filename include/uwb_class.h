@@ -2,7 +2,7 @@
 #define UWB_H_
 #include <Eigen/Dense>
 #include <iostream>
-#include <uwb_YCHIOT/uwb_fix.h>
+#include <uwb/uwbFIX.h>
 
 class Uwb{
     private:
@@ -25,7 +25,7 @@ class Uwbanchor: public Uwb{
         std::array<bool,8> tag_availabiliy_;
         std::array<double,8> to_tag_range_ = {0};
         std::array<Eigen::VectorXd,8> tag_location_;
-        uwb_YCHIOT::uwb_fix last_fix_;
+        uwb::uwbFIX last_fix_;
 
     public:
         Uwbanchor(int id , Eigen::VectorXd xyz, std::array<Eigen::VectorXd,8> tag_location);
@@ -39,8 +39,8 @@ class Uwbanchor: public Uwb{
         std::array<double,8> get_to_tag_range(){return to_tag_range_;};
         std::array<Eigen::VectorXd,8> get_tag_location(){return tag_location_;};
         void revise_tag_availabiliy(int num, bool availabilty){tag_availabiliy_[num] = availabilty;};
-        void update_last_fix(uwb_YCHIOT::uwb_fix current_fix){last_fix_ = current_fix;};
-        uwb_YCHIOT::uwb_fix get_last_fix(){return last_fix_;};
+        void update_last_fix(uwb::uwbFIX current_fix){last_fix_ = current_fix;};
+        uwb::uwbFIX get_last_fix(){return last_fix_;};
 };
 
 class Uwbtag: public Uwb{
