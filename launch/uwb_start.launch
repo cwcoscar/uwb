@@ -2,8 +2,8 @@
 <launch>
   <arg name="port" value="/dev/ttyUSB0"/>
 
-  <node name="uwb_start" pkg="uwb_YCHIOT" type="uwb_start_YCHIOT" output="screen">
+  <node name="uwb_start_YCHIOT" pkg="uwb" type="uwb_start_YCHIOT" output="screen">
     <param name="port" value="$(arg port)"/>
   </node>
-  <node name="uwb_calibration" pkg="uwb_YCHIOT" type="uwb_calibration" output="screen"/>
+  <node name="uwb_calibration" pkg="uwb" type="uwb_calibration" output="screen"/>
 </launch>
