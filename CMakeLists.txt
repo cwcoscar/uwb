@@ -13,21 +13,22 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   tf
   sensor_msgs
+  uwb_ins_eskf_msgs
 )
 
 ## Generate messages in the 'msg' folder
-add_message_files(DIRECTORY msg)
+# add_message_files(DIRECTORY msg)
 # add_message_files(
 #   FILES
 #   uwb_raw.msg
 #   uwb_ndt_compare.msg
 # )
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs
+#   geometry_msgs
+# )
 
 catkin_package(
  CATKIN_DEPENDS 
