@@ -26,6 +26,8 @@ class Uwbanchor: public Uwb{
         std::array<double,8> to_tag_range_ = {0};
         std::array<Eigen::VectorXd,8> tag_location_;
         uwb_ins_eskf_msgs::uwbFIX last_fix_;
+        //
+        std::vector<Eigen::VectorXd> position_window_;
 
     public:
         Uwbanchor(int id , Eigen::VectorXd xyz, std::array<Eigen::VectorXd,8> tag_location);
@@ -41,6 +43,8 @@ class Uwbanchor: public Uwb{
         void revise_tag_availabiliy(int num, bool availabilty){tag_availabiliy_[num] = availabilty;};
         void update_last_fix(uwb_ins_eskf_msgs::uwbFIX current_fix){last_fix_ = current_fix;};
         uwb_ins_eskf_msgs::uwbFIX get_last_fix(){return last_fix_;};
+        void update_position_window(std::vector<Eigen::VectorXd> current_position_window){position_window_ = current_position_window;};
+        std::vector<Eigen::VectorXd> get_position_window(){return position_window_;};
 };
 
 class Uwbtag: public Uwb{

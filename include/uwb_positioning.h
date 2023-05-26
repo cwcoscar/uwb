@@ -14,7 +14,7 @@
 #define Tag_number 8
 #define Anchor_number 4
 #define threshold_iteration_value_2d 0.00001
-#define threshold_iteration_value_3d 2
+#define threshold_iteration_value_3d 0.5
 #define threshold_iteration_num 10
 #define ini_manual 1
 #define ini_ublox 2
@@ -31,6 +31,7 @@ typedef struct Positioning_config{
     bool ublox_received = false;
     int weight_mode;
     std::string enabled_anchor;
+    int position_window = 10;
 }config;
 
 typedef struct Positioning_param{
@@ -48,6 +49,10 @@ typedef struct Positioning_param{
     bool iteration_continue;
     double iteration_value;
     double iteration_num;
+    // Record the minimum iteration value, corresponding delta_w and corresponding estimated position
+    double tmp_iter_v = INT_MAX;
+    Eigen::VectorXd tmp_esti_pos;
+    Eigen::MatrixXd tmp_delta_w;
 }positioning;
 
 class Uwbpositioning{
@@ -70,14 +75,14 @@ class Uwbpositioning{
         void Pseudo_Invert(positioning& variables); //pseudo-inverse
         void Weight_matrix(positioning& variables, Uwbanchor* A); //generate weight as filtering unavailable range
         void Update_estimate(positioning& variables);
-        Eigen::VectorXd Propagate_sol(Uwbanchor* A);
+        bool Propagate_sol(Uwbanchor* A, Eigen::VectorXd& result);
 
         // For 2D
         void Estimated_range_2d(positioning& variables);
         void H_matrix_2d(positioning& variables);// (estimate location - fixed tag)/estimated range
         void Pseudo_Invert_2d(positioning& variables); //pseudo-inverse
         void Update_estimate_2d(positioning& variables);
-        Eigen::VectorXd Propagate_sol_2d(Uwbanchor* A);
+        bool Propagate_sol_2d(Uwbanchor* A, Eigen::VectorXd& result);
         //
 
         void show_config();
