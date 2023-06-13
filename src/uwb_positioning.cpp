@@ -363,6 +363,7 @@ Eigen::Vector3d Uwbpositioning::estimate_velocity(Eigen::Vector3d now_enu, Eigen
     static Eigen::Vector3d last_velocity = (now_enu - last_enu)/time_interval;
     Eigen::Vector3d now_velocity = (now_enu - last_enu)/time_interval;
     Eigen::Vector3d acc = (now_velocity - last_velocity)/time_interval;
+    // check the acceleration limit
     for(int i = 0; i < 3; i++){
         if(acc(i) > 2){
             now_velocity(i) = last_velocity(i) + 2*time_interval;
@@ -371,6 +372,8 @@ Eigen::Vector3d Uwbpositioning::estimate_velocity(Eigen::Vector3d now_enu, Eigen
             now_velocity(i) = last_velocity(i) - 2*time_interval;
         }
     }
+    // z-axis velocity is limitd
+    now_velocity(2) = 0.1*now_velocity(2);
     return now_velocity;
 }
 

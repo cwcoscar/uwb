@@ -1,7 +1,7 @@
 <!---->
 <launch>
   <arg name="ublox_fix_topic" value="/ublox_f9k/fix"/>
-  <arg name="fix_mode" value="3"/> <!-- 2 = 2D , 3 = 3D-->
+  <arg name="fix_mode" value="2"/> <!-- 2 = 2D , 3 = 3D-->
   <arg name="ini_mode" value="3"/> <!--1 = manual, 2 = ublox, 3 = Once ublox updates, use ublox fix. Otherwise use UWB-->
   <arg name="ini_x" value="94373"/>
   <arg name="ini_y" value="208962"/>
