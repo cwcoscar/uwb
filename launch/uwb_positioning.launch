@@ -8,6 +8,11 @@
   <arg name="ini_z" value="-3899"/>
   <arg name="weight_mode" value="2"/> <!--1 = manual, 2 = time-varied-->
   <arg name="enabled_anchor" value="1 0 0 0"/> <!-- 0 = disabled 1 = enabled, from 0th to 3rd-->
+  <!-- Anchor location in b-frame-->
+  <arg name="A0_x" value="0.00"/>
+  <arg name="A0_y" value="0.05"/>
+  <arg name="A0_z" value="0.43"/>
+
   <!-- HOLE 9 -->
   <arg name="T0_x" value="94316.6028646"/>
   <arg name="T0_y" value="209345.059231"/>
@@ -44,6 +49,9 @@
     <param name="ini_z" value="$(arg ini_z)" type="double"/>
     <param name="weight_mode" value="$(arg weight_mode)" type="int"/>
     <param name="enabled_anchor" value="$(arg enabled_anchor)"/>
+    <param name="A0_x" value="$(arg A0_x)" type="double"/>
+    <param name="A0_y" value="$(arg A0_y)" type="double"/>
+    <param name="A0_z" value="$(arg A0_z)" type="double"/>
     <param name="T0_x" value="$(arg T0_x)" type="double"/>
     <param name="T0_y" value="$(arg T0_y)" type="double"/>
     <param name="T0_z" value="$(arg T0_z)" type="double"/>

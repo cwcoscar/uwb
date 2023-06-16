@@ -1,7 +1,7 @@
 #include "coordinate_mat_transformation.h" //For llh enu tf
 #include "uwb_positioning.h"
 
-Uwbpositioning::Uwbpositioning(ros::Publisher (& pub)[Anchor_number], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config) 
+Uwbpositioning::Uwbpositioning(ros::Publisher (& pub)[Anchor_number*2], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config) 
 : pub_(&pub), A_(&A), T_(&T), positioning_config_(positioning_config){
     uwb_ins_eskf_msgs::uwbFIX ini_fix;
     ini_fix.header.frame_id = "ini";
@@ -227,7 +227,7 @@ bool Uwbpositioning::Propagate_sol(Uwbanchor* A, Eigen::VectorXd& result){
         if(positioning_config_.ini_mode == ini_ublox_uwb){
             A -> revise_xyz(variables.estimated_pos);
         }
-        std::cout << "variables.delta_w: " << std::endl << variables.delta_w << std::endl;
+        // std::cout << "variables.delta_w: " << std::endl << variables.delta_w << std::endl;
         result = variables.estimated_pos;
         return true;
     }
@@ -331,7 +331,7 @@ bool Uwbpositioning::Propagate_sol_2d(Uwbanchor* A, Eigen::VectorXd& result){
         if(positioning_config_.ini_mode == ini_ublox_uwb){
             A -> revise_xyz(variables.estimated_pos);
         }
-        std::cout << "variables.delta_w: " << std::endl << variables.delta_w << std::endl;
+        // std::cout << "variables.delta_w: " << std::endl << variables.delta_w << std::endl;
         result = variables.estimated_pos;
         return true;
     }
@@ -406,18 +406,41 @@ Eigen::Vector3d Uwbpositioning::estimate_orientation(Eigen::Vector3d now_enu, Ei
     return att_enu;
 }
 
+Eigen::Vector3d Uwbpositioning::transform2baselink(Eigen::Vector3d now_enu, Eigen::Vector3d att_l, int A_num){
+    att_l = (att_l/180) * M_PI;
+    Eigen::Matrix3d R_b_l = coordinate_mat_transformation::Rotation_matrix(att_l);
+    static Eigen::Vector3d anchor_location_b = (*A_+A_num) -> get_location_b();
+    Eigen::Vector3d anchor_location_l = now_enu - R_b_l*anchor_location_b;
+    // std::cout << "R_b_l*anchor_location_b: " << std::endl << R_b_l*anchor_location_b << std::endl;
+    return anchor_location_l;
+}
+
+void Uwbpositioning::publish_baselink(uwb_ins_eskf_msgs::uwbFIX &msg, Eigen::Vector3d &baselink_location_enu, Eigen::Vector3d now_enu, int A_num){
+    Eigen::Vector3d att_l(msg.att_e, msg.att_n, msg.att_u);
+    baselink_location_enu = transform2baselink(now_enu, att_l, A_num);
+    Eigen::Vector3d ref_lla(NCKUEE_LATITUDE, NCKUEE_LONGITUDE, NCKUEE_HEIGHT);
+    Eigen::VectorXd baselink_lla = coordinate_mat_transformation::enu2Geodetic(baselink_location_enu ,ref_lla);
+    msg.latitude = baselink_lla[0];
+    msg.longitude = baselink_lla[1];
+    msg.altitude = baselink_lla[2];
+
+    (*pub_+A_num+4) -> publish(msg);
+}
+
 void Uwbpositioning::Publish_uwb(uwb_ins_eskf_msgs::uwbFIX &now_fix, Eigen::VectorXd now_enu, int A_num){
     Eigen::Vector3d ref_lla(NCKUEE_LATITUDE, NCKUEE_LONGITUDE, NCKUEE_HEIGHT);
     ros::Time now = ros::Time::now();
 
     now_fix.header.stamp = now;
-    now_fix.header.frame_id = "uwb_A" + std::to_string(A_num);
+    // now_fix.header.frame_id = "uwb_A" + std::to_string(A_num);
+    now_fix.header.frame_id = "local";
 
     Eigen::VectorXd result_lla = coordinate_mat_transformation::enu2Geodetic(now_enu ,ref_lla);
     now_fix.latitude = result_lla[0];
     now_fix.longitude = result_lla[1];
     now_fix.altitude = result_lla[2];
 
+    // If this solution is not the initial state
     uwb_ins_eskf_msgs::uwbFIX last_fix = (*A_+A_num) -> get_last_fix();
     if (last_fix.header.frame_id != "ini"){
         Eigen::Vector3d last_rover(last_fix.latitude, last_fix.longitude, last_fix.altitude);
@@ -441,10 +464,16 @@ void Uwbpositioning::Publish_uwb(uwb_ins_eskf_msgs::uwbFIX &now_fix, Eigen::Vect
         now_fix.att_n = att_enu(1);
         now_fix.att_u = att_enu(2);
     }
+    // Publish baselink location derived from uwb solution
+    uwb_ins_eskf_msgs::uwbFIX baselink_msg = now_fix;
+    Eigen::Vector3d baselink_location_enu;
+    publish_baselink(baselink_msg, baselink_location_enu, now_enu, A_num);
+    send_tf(baselink_msg, baselink_location_enu, "uwb_A" + std::to_string(A_num)+ "_baselink");
+
     (*pub_+A_num) -> publish(now_fix);
 }
 
-void Uwbpositioning::send_tf(uwb_ins_eskf_msgs::uwbFIX now_fix, Eigen::Vector3d now_enu, int A_num){
+void Uwbpositioning::send_tf(uwb_ins_eskf_msgs::uwbFIX now_fix, Eigen::Vector3d now_enu, std::string tf_name){
     tf::Transform transform;
     tf::Quaternion current_q;
 
@@ -453,7 +482,7 @@ void Uwbpositioning::send_tf(uwb_ins_eskf_msgs::uwbFIX now_fix, Eigen::Vector3d 
                      coordinate_mat_transformation::deg2Rad(now_fix.att_u));
     transform.setOrigin(tf::Vector3(now_enu(0), now_enu(1), now_enu(2)));
     transform.setRotation(current_q);
-    br_.sendTransform(tf::StampedTransform(transform, now_fix.header.stamp, "/map", "uwb_A" + std::to_string(A_num)));
+    br_.sendTransform(tf::StampedTransform(transform, now_fix.header.stamp, "/map", tf_name));
     // std::cout << "heading: " << std::endl << now_fix.att_u << std::endl;
 }
 
@@ -507,7 +536,7 @@ void Uwbpositioning::Test(){
                     // Publish UWB solution and send tf
                     uwb_ins_eskf_msgs::uwbFIX now_fix;
                     Publish_uwb(now_fix, result, i);
-                    send_tf(now_fix, result,i);
+                    send_tf(now_fix, result, "uwb_A" + std::to_string(i));
                     (*A_+i) -> update_last_fix(now_fix);
                 }
                 

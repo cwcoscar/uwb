@@ -2,8 +2,8 @@
 
 Uwb::Uwb(int id , Eigen::VectorXd xyz) : id_(id), xyz_(xyz){}
 
-Uwbanchor::Uwbanchor(int id , Eigen::VectorXd xyz, std::array<Eigen::VectorXd,8> tag_location) 
-: Uwb(id, xyz), tag_location_(tag_location){
+Uwbanchor::Uwbanchor(int id , Eigen::VectorXd xyz, std::array<Eigen::VectorXd,8> tag_location, Eigen::Vector3d location_b) 
+: Uwb(id, xyz), tag_location_(tag_location), location_b_(location_b){
     for (int i = 0; i < sizeof(tag_availabiliy_); i++){
         tag_availabiliy_[i] = false;
     }

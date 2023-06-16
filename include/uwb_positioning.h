@@ -61,11 +61,11 @@ class Uwbpositioning{
         Uwbtag (*T_)[Tag_number];
         config positioning_config_;
         std::array<double,8> tag_receive_time_;
-        ros::Publisher (*pub_)[Anchor_number];
+        ros::Publisher (*pub_)[Anchor_number*2];
         tf::TransformBroadcaster br_;
         
     public:
-        Uwbpositioning(ros::Publisher (& pub)[Anchor_number], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config);
+        Uwbpositioning(ros::Publisher (& pub)[Anchor_number*2], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config);
         void UwbCalibrationCallback(const uwb_ins_eskf_msgs::uwbRAW& msg);
         void UbloxfixCallback(const sensor_msgs::NavSatFix& msg);
         double Distance(Eigen::VectorXd A, Eigen::VectorXd T);
@@ -88,8 +88,10 @@ class Uwbpositioning{
         void show_config();
         Eigen::Vector3d estimate_velocity(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu, double time_interval);
         Eigen::Vector3d estimate_orientation(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu);
+        Eigen::Vector3d transform2baselink(Eigen::Vector3d now_enu, Eigen::Vector3d att_l, int A_num);
+        void publish_baselink(uwb_ins_eskf_msgs::uwbFIX &msg, Eigen::Vector3d &baselink_location_enu, Eigen::Vector3d now_enu, int A_num);
         void Publish_uwb(uwb_ins_eskf_msgs::uwbFIX &now_fix, Eigen::VectorXd now_enu, int A_num);
-        void send_tf(uwb_ins_eskf_msgs::uwbFIX now_fix, Eigen::Vector3d now_enu, int A_num);
+        void send_tf(uwb_ins_eskf_msgs::uwbFIX now_fix, Eigen::Vector3d now_enu, std::string tf_name);
         void Test();
 
 };
