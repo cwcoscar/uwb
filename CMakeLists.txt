@@ -55,14 +55,6 @@ add_dependencies(uwb_positioning
   ${catkin_EXPORTED_TARGETS}
 )
 
-add_executable(uwb_ndt_comparison src/uwb_ndt_compare.cpp)
-
-target_link_libraries(uwb_ndt_comparison ${catkin_LIBRARIES})
-
-add_dependencies(uwb_ndt_comparison
-  ${catkin_EXPORTED_TARGETS}
-)
-
 add_executable(uwb_calibration src/uwb_calibration.cpp)
 
 target_link_libraries(uwb_calibration ${catkin_LIBRARIES})
@@ -111,7 +103,6 @@ install(PROGRAMS
 install(TARGETS
   uwb_start_YCHIOT
   uwb_calibration
-  uwb_ndt_comparison
   uwb_positioning
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

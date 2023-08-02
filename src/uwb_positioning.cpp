@@ -36,11 +36,10 @@ void Uwbpositioning::UbloxfixCallback(const sensor_msgs::NavSatFix& msg){
 
     //Transform the LLH of rover into ENU based on the LLH of EE building
     Eigen::Vector3d gnss_pos = coordinate_mat_transformation::lla2enu(rover, ref_lla);
-    // add error
-    gnss_pos(0) = gnss_pos(0) - 5;
-    gnss_pos(1) = gnss_pos(1) - 5;
-    // std::cout << "gnss height: " << gnss_pos(2) << std::endl;
-    // gnss_pos(2) = -3899;
+    // Add error to test impact of initial position 
+    // gnss_pos(0) = gnss_pos(0) - 5;
+    // gnss_pos(1) = gnss_pos(1) - 5;
+    // gnss_pos(2) = gnss_pos(2)-1.5;
 
 
     //Update the intial position of the rover in the algorithm
@@ -90,8 +89,7 @@ void Uwbpositioning::H_matrix(positioning& variables){
 }
 
 // Generate weight depending on the time difference between the last data received and now
-//            (last data time - now)               -(time difference)
-// weight = 10                       => weight = 10
+// weight = 10^(last data time - now) => weight = 10^-(time difference)
 void Uwbpositioning::Weight_matrix(positioning& variables, Uwbanchor* A){
     Eigen::MatrixXd weight = Eigen::MatrixXd::Identity(Tag_number,Tag_number);
     int availabilty_count = 0;
@@ -381,7 +379,7 @@ Eigen::Vector3d Uwbpositioning::estimate_orientation(Eigen::Vector3d now_enu, Ei
     static Eigen::Vector3d old_enu = last_enu;
     Eigen::Vector3d att_enu;
     Eigen::Vector3d diff_enu = now_enu - last_enu;
-    if(diff_enu.segment(0,2).norm() < 1.5){
+    if(diff_enu.segment(0,2).norm() < 3){
         diff_enu = now_enu - old_enu;
         old_enu = (diff_enu.segment(0,2).norm() > 2) ? last_enu : old_enu;
     }
