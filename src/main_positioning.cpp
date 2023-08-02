@@ -17,15 +17,19 @@ int main(int argc, char **argv) {
     nh.param("enabled_anchor", positioning_config.enabled_anchor, std::string("1000"));
     
     // Publishers of navigation solutions
-    ros::Publisher pub0 = n.advertise<uwb::uwbFIX>("/uwb_position/A0", 1);
-    ros::Publisher pub1 = n.advertise<uwb::uwbFIX>("/uwb_position/A1", 1);
-    ros::Publisher pub2 = n.advertise<uwb::uwbFIX>("/uwb_position/A2", 1);
-    ros::Publisher pub3 = n.advertise<uwb::uwbFIX>("/uwb_position/A3", 1);
-    ros::Publisher pub[Anchor_number] = {pub0, pub1, pub2, pub3};
+    ros::Publisher pub0 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A0", 1);
+    ros::Publisher pub1 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A1", 1);
+    ros::Publisher pub2 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A2", 1);
+    ros::Publisher pub3 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A3", 1);
+    ros::Publisher pub_b0 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A0/baselink", 1);
+    ros::Publisher pub_b1 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A1/baselink", 1);
+    ros::Publisher pub_b2 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A2/baselink", 1);
+    ros::Publisher pub_b3 = n.advertise<uwb_ins_eskf_msgs::uwbFIX>("/uwb_position/A3/baselink", 1);
+    ros::Publisher pub[Anchor_number*2] = {pub0, pub1, pub2, pub3, pub_b0, pub_b1, pub_b2, pub_b3};
 
-    ros::Publisher pub_tag = n.advertise<uwb::uwbTAG>("/uwb_tag_location", 1);
+    ros::Publisher pub_tag = n.advertise<uwb_ins_eskf_msgs::uwbTAG>("/uwb_tag_location", 1);
 
-    // Initial position of vehicle (baselink)
+    // Initial position of vehicle
     // If ublox fix is received, the data will be overrided.
     Eigen::VectorXd xyz(3);
     if (nh.hasParam("ini_x") && nh.hasParam("ini_y") && nh.hasParam("ini_z")){
@@ -34,6 +38,14 @@ int main(int argc, char **argv) {
         nh.getParam("ini_z", xyz[2]);
     }
     else xyz << 45, 175, -60;
+
+    // Position of anchor in b-frame
+    Eigen::Vector3d A0_b(0,0,0);
+    if (nh.hasParam("A0_x") && nh.hasParam("A0_y") && nh.hasParam("A0_z")){
+        nh.getParam("A0_x", A0_b[0]);
+        nh.getParam("A0_y", A0_b[1]);
+        nh.getParam("A0_z", A0_b[2]);
+    }
 
     //Initial position of tags (static stations)
     Eigen::VectorXd location(3);
@@ -89,10 +101,10 @@ int main(int argc, char **argv) {
 
     // Establish Anchor 0~3
     Uwbanchor Anchor[Anchor_number] = {
-        Uwbanchor(0, xyz, tag_location),
-        Uwbanchor(1, xyz, tag_location),
-        Uwbanchor(2, xyz, tag_location),
-        Uwbanchor(3, xyz, tag_location)
+        Uwbanchor(0, xyz, tag_location, A0_b),
+        Uwbanchor(1, xyz, tag_location, A0_b),
+        Uwbanchor(2, xyz, tag_location, A0_b),
+        Uwbanchor(3, xyz, tag_location, A0_b)
     };
 
     // Establish Tag 0~7
@@ -117,7 +129,7 @@ int main(int argc, char **argv) {
     }
 
     // Publish tag location once
-    uwb::uwbTAG topic_data;
+    uwb_ins_eskf_msgs::uwbTAG topic_data;
     geometry_msgs::Pose tag_locations[Tag_number];
     for (int j = 0 ; j < Tag_number; j++){
         tag_locations[j].position.x = tag_location[j][0];

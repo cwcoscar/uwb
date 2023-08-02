@@ -62,7 +62,7 @@ namespace coordinate_mat_transformation
         return att;
     }
 
-    // roll pitch yaw -> rotation matrix (XYZ)
+    // roll pitch yaw(rad) -> rotation matrix (XYZ)
     Eigen::Matrix3d Rotation_matrix(Eigen::VectorXd att){
         Eigen::Quaterniond q;
         q = Eigen::AngleAxisd(att(0), Eigen::Vector3d::UnitX())

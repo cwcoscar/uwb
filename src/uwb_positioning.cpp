@@ -1,16 +1,16 @@
 #include "coordinate_mat_transformation.h" //For llh enu tf
 #include "uwb_positioning.h"
 
-Uwbpositioning::Uwbpositioning(ros::Publisher (& pub)[Anchor_number], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config) 
+Uwbpositioning::Uwbpositioning(ros::Publisher (& pub)[Anchor_number*2], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config) 
 : pub_(&pub), A_(&A), T_(&T), positioning_config_(positioning_config){
-    uwb::uwbFIX ini_fix;
+    uwb_ins_eskf_msgs::uwbFIX ini_fix;
     ini_fix.header.frame_id = "ini";
     for (int i = 0; i < Anchor_number; i++){
         (*A_+i) -> update_last_fix(ini_fix);
     }
 }
 
-void Uwbpositioning::UwbCalibrationCallback(const uwb::uwbRAW& msg){
+void Uwbpositioning::UwbCalibrationCallback(const uwb_ins_eskf_msgs::uwbRAW& msg){
     int num_id = msg.Tag_id;
     bool anchor_availabiliy[Anchor_number] = {msg.A0, msg.A1, msg.A2, msg.A3};
     double to_anchor_range[Anchor_number] = {msg.distance_to_A0, msg.distance_to_A1, msg.distance_to_A2, msg.distance_to_A3};
@@ -21,12 +21,13 @@ void Uwbpositioning::UwbCalibrationCallback(const uwb::uwbRAW& msg){
     for (int i = 0; i < Anchor_number; i++){
         (*A_+i) -> update_availability_range(anchor_availabiliy[i], to_anchor_range[i], num_id);
     }
-    // double secs =ros::Time::now().toSec();
-    // std::cout << "t d: " << secs - tag_receive_time_[num_id] << std::endl;
-    // std::cout << "t: " << tag_receive_time_[num_id] << std::endl;
-
-    // if (num_id == 3){Test();}
-    Test();
+    static double secs = msg.stamp.toSec();
+    double time_interval = msg.stamp.toSec() - secs;
+    
+    if (time_interval > 0.2){
+        Test();
+        secs = msg.stamp.toSec();
+    }
 }
 
 void Uwbpositioning::UbloxfixCallback(const sensor_msgs::NavSatFix& msg){
@@ -35,9 +36,10 @@ void Uwbpositioning::UbloxfixCallback(const sensor_msgs::NavSatFix& msg){
 
     //Transform the LLH of rover into ENU based on the LLH of EE building
     Eigen::Vector3d gnss_pos = coordinate_mat_transformation::lla2enu(rover, ref_lla);
-    // add error
-    // gnss_pos(0) = gnss_pos(0) - 10;
-    // gnss_pos(1) = gnss_pos(1) - 10;
+    // Add error to test impact of initial position 
+    // gnss_pos(0) = gnss_pos(0) - 5;
+    // gnss_pos(1) = gnss_pos(1) - 5;
+    // gnss_pos(2) = gnss_pos(2)-1.5;
 
 
     //Update the intial position of the rover in the algorithm
@@ -87,8 +89,7 @@ void Uwbpositioning::H_matrix(positioning& variables){
 }
 
 // Generate weight depending on the time difference between the last data received and now
-//            (last data time - now)               -(time difference)
-// weight = 10                       => weight = 10
+// weight = 10^(last data time - now) => weight = 10^-(time difference)
 void Uwbpositioning::Weight_matrix(positioning& variables, Uwbanchor* A){
     Eigen::MatrixXd weight = Eigen::MatrixXd::Identity(Tag_number,Tag_number);
     int availabilty_count = 0;
@@ -161,6 +162,12 @@ void Uwbpositioning::Update_estimate(positioning& variables){
     if (variables.iteration_num > threshold_iteration_num){
         variables.iteration_continue = false;
         std::cout << "\033[31m" << "Iteration times over " << threshold_iteration_num << " !" << "\033[0m" << std::endl;
+        // Check if the current estimated position having the minimum iteration value, 
+        // or replace it with the estimated position with the minimum one
+        if(variables.tmp_iter_v < variables.iteration_value){
+            variables.estimated_pos = variables.tmp_esti_pos;
+            variables.delta_w = variables.tmp_delta_w;
+        }
     }
     else if (variables.iteration_value < threshold_iteration_value_3d){
         std::cout << "\033[32m" << "Iteration value < " << threshold_iteration_value_3d << " !" << "\033[0m" << std::endl;
@@ -172,10 +179,16 @@ void Uwbpositioning::Update_estimate(positioning& variables){
         variables.iteration_value = variables.delta_w.norm();
         variables.iteration_num++;
         std::cout << "\033[33m" << "Iteration value : " << variables.iteration_value << " !" << "\033[0m" << std::endl;
+        // Saved the minimum iteration value, corresponding delta_w and corresponding estimated position
+        if(variables.tmp_iter_v > variables.iteration_value){
+            variables.tmp_iter_v = variables.iteration_value;
+            variables.tmp_delta_w = variables.delta_w;
+            variables.tmp_esti_pos = variables.estimated_pos;
+        }
     }
 }
 
-Eigen::VectorXd Uwbpositioning::Propagate_sol(Uwbanchor* A){
+bool Uwbpositioning::Propagate_sol(Uwbanchor* A, Eigen::VectorXd& result){
     positioning variables;
     variables.estimated_pos = A -> get_xyz();
     std::cout << std::fixed << std::setprecision(6);
@@ -205,13 +218,16 @@ Eigen::VectorXd Uwbpositioning::Propagate_sol(Uwbanchor* A){
         }
     }
     if (variables.invert_fail == true || variables.iteration_num == 1){
-        return A -> get_xyz();
+        result = A -> get_xyz();
+        return false;
     }
     else{
         if(positioning_config_.ini_mode == ini_ublox_uwb){
             A -> revise_xyz(variables.estimated_pos);
         }
-        return variables.estimated_pos;
+        // std::cout << "variables.delta_w: " << std::endl << variables.delta_w << std::endl;
+        result = variables.estimated_pos;
+        return true;
     }
 }
 
@@ -277,11 +293,11 @@ void Uwbpositioning::Update_estimate_2d(positioning& variables){
     }
 }
 
-Eigen::VectorXd Uwbpositioning::Propagate_sol_2d(Uwbanchor* A){
+bool Uwbpositioning::Propagate_sol_2d(Uwbanchor* A, Eigen::VectorXd& result){
     positioning variables;
     variables.estimated_pos = A -> get_xyz();
     std::cout << std::fixed << std::setprecision(6);
-    std::cout << "\033[32m" << "Initial ENU : (" << variables.estimated_pos[0] << ", " << variables.estimated_pos[1] << ")\033[0m" << std::endl;
+    std::cout << "\033[32m" << "Initial ENU : (" << variables.estimated_pos[0] << ", " << variables.estimated_pos[1] << ", " << variables.estimated_pos[2] << ")\033[0m" << std::endl;
     variables.tag_availabiliy = A -> get_tag_availabiliy();
     variables.to_tag_range = A -> get_to_tag_range();
     variables.tag_location = A -> get_tag_location();
@@ -306,13 +322,16 @@ Eigen::VectorXd Uwbpositioning::Propagate_sol_2d(Uwbanchor* A){
         }
     }
     if (variables.invert_fail == true || variables.iteration_num == 1){
-        return A -> get_xyz();
+        result = A -> get_xyz();
+        return false;
     }
     else{
         if(positioning_config_.ini_mode == ini_ublox_uwb){
             A -> revise_xyz(variables.estimated_pos);
         }
-        return variables.estimated_pos;
+        // std::cout << "variables.delta_w: " << std::endl << variables.delta_w << std::endl;
+        result = variables.estimated_pos;
+        return true;
     }
 }
 
@@ -337,12 +356,34 @@ void Uwbpositioning::show_config(){
 }
 
 Eigen::Vector3d Uwbpositioning::estimate_velocity(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu, double time_interval){
-    return (now_enu - last_enu)/time_interval;;
+    // std::cout << "(now_enu - last_enu): " << (now_enu - last_enu) << std::endl;
+    // std::cout << "time_interval: " << time_interval << std::endl;
+    static Eigen::Vector3d last_velocity = (now_enu - last_enu)/time_interval;
+    Eigen::Vector3d now_velocity = (now_enu - last_enu)/time_interval;
+    Eigen::Vector3d acc = (now_velocity - last_velocity)/time_interval;
+    // check the acceleration limit
+    for(int i = 0; i < 3; i++){
+        if(acc(i) > 2){
+            now_velocity(i) = last_velocity(i) + 2*time_interval;
+        }
+        else if (acc(i) < -2){
+            now_velocity(i) = last_velocity(i) - 2*time_interval;
+        }
+    }
+    // z-axis velocity is limitd
+    now_velocity(2) = 0.1*now_velocity(2);
+    return now_velocity;
 }
 
 Eigen::Vector3d Uwbpositioning::estimate_orientation(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu){
+    static Eigen::Vector3d old_enu = last_enu;
     Eigen::Vector3d att_enu;
     Eigen::Vector3d diff_enu = now_enu - last_enu;
+    if(diff_enu.segment(0,2).norm() < 3){
+        diff_enu = now_enu - old_enu;
+        old_enu = (diff_enu.segment(0,2).norm() > 2) ? last_enu : old_enu;
+    }
+    else old_enu = last_enu;
 
     // z-axis(up)
     if (atan2(diff_enu(0),diff_enu(1)) > 0){
@@ -354,7 +395,7 @@ Eigen::Vector3d Uwbpositioning::estimate_orientation(Eigen::Vector3d now_enu, Ei
     else att_enu(2) = coordinate_mat_transformation::rad2Deg(atan2(diff_enu(0),diff_enu(1)));
 
     // x-axis(east)
-    att_enu(0) = asin(diff_enu(2));
+    att_enu(0) = isnan(asin(diff_enu(2)/diff_enu.norm())) ? 0:asin(diff_enu(2)/diff_enu.norm());
 
     // y-axis(north)
     // unable to calculate from only a vector
@@ -363,19 +404,42 @@ Eigen::Vector3d Uwbpositioning::estimate_orientation(Eigen::Vector3d now_enu, Ei
     return att_enu;
 }
 
-void Uwbpositioning::Publish_uwb(uwb::uwbFIX &now_fix, Eigen::VectorXd now_enu, int A_num){
+Eigen::Vector3d Uwbpositioning::transform2baselink(Eigen::Vector3d now_enu, Eigen::Vector3d att_l, int A_num){
+    att_l = (att_l/180) * M_PI;
+    Eigen::Matrix3d R_b_l = coordinate_mat_transformation::Rotation_matrix(att_l);
+    static Eigen::Vector3d anchor_location_b = (*A_+A_num) -> get_location_b();
+    Eigen::Vector3d anchor_location_l = now_enu - R_b_l*anchor_location_b;
+    // std::cout << "R_b_l*anchor_location_b: " << std::endl << R_b_l*anchor_location_b << std::endl;
+    return anchor_location_l;
+}
+
+void Uwbpositioning::publish_baselink(uwb_ins_eskf_msgs::uwbFIX &msg, Eigen::Vector3d &baselink_location_enu, Eigen::Vector3d now_enu, int A_num){
+    Eigen::Vector3d att_l(msg.att_e, msg.att_n, msg.att_u);
+    baselink_location_enu = transform2baselink(now_enu, att_l, A_num);
+    Eigen::Vector3d ref_lla(NCKUEE_LATITUDE, NCKUEE_LONGITUDE, NCKUEE_HEIGHT);
+    Eigen::VectorXd baselink_lla = coordinate_mat_transformation::enu2Geodetic(baselink_location_enu ,ref_lla);
+    msg.latitude = baselink_lla[0];
+    msg.longitude = baselink_lla[1];
+    msg.altitude = baselink_lla[2];
+
+    (*pub_+A_num+4) -> publish(msg);
+}
+
+void Uwbpositioning::Publish_uwb(uwb_ins_eskf_msgs::uwbFIX &now_fix, Eigen::VectorXd now_enu, int A_num){
     Eigen::Vector3d ref_lla(NCKUEE_LATITUDE, NCKUEE_LONGITUDE, NCKUEE_HEIGHT);
     ros::Time now = ros::Time::now();
 
     now_fix.header.stamp = now;
-    now_fix.header.frame_id = "uwb_A" + std::to_string(A_num);
+    // now_fix.header.frame_id = "uwb_A" + std::to_string(A_num);
+    now_fix.header.frame_id = "local";
 
     Eigen::VectorXd result_lla = coordinate_mat_transformation::enu2Geodetic(now_enu ,ref_lla);
     now_fix.latitude = result_lla[0];
     now_fix.longitude = result_lla[1];
     now_fix.altitude = result_lla[2];
 
-    uwb::uwbFIX last_fix = (*A_+A_num) -> get_last_fix();
+    // If this solution is not the initial state
+    uwb_ins_eskf_msgs::uwbFIX last_fix = (*A_+A_num) -> get_last_fix();
     if (last_fix.header.frame_id != "ini"){
         Eigen::Vector3d last_rover(last_fix.latitude, last_fix.longitude, last_fix.altitude);
         Eigen::Vector3d last_enu = coordinate_mat_transformation::lla2enu(last_rover, ref_lla);
@@ -384,24 +448,40 @@ void Uwbpositioning::Publish_uwb(uwb::uwbFIX &now_fix, Eigen::VectorXd now_enu, 
         Eigen::Vector3d result_v_enu = estimate_velocity(now_enu, last_enu, time_interval);
         now_fix.velocity_e = result_v_enu[0];
         now_fix.velocity_n = result_v_enu[1];
+        // now_fix.velocity_u = 0.01*result_v_enu[2];
         now_fix.velocity_u = result_v_enu[2];
 
         Eigen::Vector3d att_enu = estimate_orientation(now_enu, last_enu);
+        // 0 ~ 360 -> -180 ~ 180
+        for (int i = 0; i < 3; i++){
+            if (att_enu(i) > 180 && att_enu(i) < 360){
+                att_enu(i) = att_enu(i) - 360;
+            }
+        }
         now_fix.att_e = att_enu(0);
         now_fix.att_n = att_enu(1);
         now_fix.att_u = att_enu(2);
     }
+    // Publish baselink location derived from uwb solution
+    uwb_ins_eskf_msgs::uwbFIX baselink_msg = now_fix;
+    Eigen::Vector3d baselink_location_enu;
+    publish_baselink(baselink_msg, baselink_location_enu, now_enu, A_num);
+    send_tf(baselink_msg, baselink_location_enu, "uwb_A" + std::to_string(A_num)+ "_baselink");
+
     (*pub_+A_num) -> publish(now_fix);
 }
 
-void Uwbpositioning::send_tf(uwb::uwbFIX now_fix, Eigen::Vector3d now_enu, int A_num){
+void Uwbpositioning::send_tf(uwb_ins_eskf_msgs::uwbFIX now_fix, Eigen::Vector3d now_enu, std::string tf_name){
     tf::Transform transform;
     tf::Quaternion current_q;
 
-    current_q.setRPY(now_fix.att_n, now_fix.att_e, -now_fix.att_u);
+    current_q.setRPY(coordinate_mat_transformation::deg2Rad(now_fix.att_e), 
+                     coordinate_mat_transformation::deg2Rad(now_fix.att_n), 
+                     coordinate_mat_transformation::deg2Rad(now_fix.att_u));
     transform.setOrigin(tf::Vector3(now_enu(0), now_enu(1), now_enu(2)));
     transform.setRotation(current_q);
-    br_.sendTransform(tf::StampedTransform(transform, now_fix.header.stamp, "/map", "uwb_A" + std::to_string(A_num)));
+    br_.sendTransform(tf::StampedTransform(transform, now_fix.header.stamp, "/map", tf_name));
+    // std::cout << "heading: " << std::endl << now_fix.att_u << std::endl;
 }
 
 void Uwbpositioning::Test(){
@@ -412,22 +492,52 @@ void Uwbpositioning::Test(){
         for (int i = 0; i < Anchor_number; i++){
             if(enabled_anchor[i] == "1"){
                 Eigen::VectorXd result;
+                bool positioning_success = true;
                 // Propagate the positioning solution of each anchor
                 if (positioning_config_.fix_mode == 2){
-                    result = Propagate_sol_2d((*A_+i));
+                    positioning_success = Propagate_sol_2d((*A_+i), result);
                 }
                 else if (positioning_config_.fix_mode == 3){
-                    result = Propagate_sol((*A_+i));
+                    positioning_success = Propagate_sol((*A_+i), result);
+
+                    if(positioning_success){
+                        //Position window for height
+                        double h = 0;
+                        double weight = 0;
+                        double a = 0.99;
+                        std::vector<Eigen::VectorXd> position_window = (*A_+i) -> get_position_window();
+                        if(position_window.size() < positioning_config_.position_window){
+                            position_window.push_back(result);
+                            for(int i = 0; i < position_window.size(); i++){
+                                weight = pow(a,position_window.size()-1-i) * (1-a) / (1 - pow(a,position_window.size()));
+                                h = h + weight * position_window[i](2);
+                            }
+                            result(2) = h;
+                        }
+                        else if(position_window.size() == positioning_config_.position_window){
+                            position_window.push_back(result);
+                            position_window.erase(position_window.begin());
+                            for(int i = 0; i < position_window.size(); i++){
+                                weight = pow(a,positioning_config_.position_window-1-i) * (1-a) / (1 - pow(a,positioning_config_.position_window));
+                                h = h + weight * position_window[i](2);
+                            }
+                            result(2) = h;
+                        }
+                        (*A_+i) -> update_position_window(position_window);
+                        //
+                    }
                 }
-                std::cout << "\033[32m" << "Anchor number " << i << "\033[0m" << std::endl;
-                std::cout << "\033[32m" << "Localization: (" << result[0] << ", " << result[1] << ", " << result[2] << ")" << "\033[0m" << std::endl;
+                if(positioning_success){
+                    std::cout << "\033[32m" << "Anchor number " << i << "\033[0m" << std::endl;
+                    std::cout << "\033[32m" << "Localization: (" << result[0] << ", " << result[1] << ", " << result[2] << ")" << "\033[0m" << std::endl;
 
-                // Publish UWB solution and send tf
-                uwb::uwbFIX now_fix;
-                Publish_uwb(now_fix, result, i);
-                send_tf(now_fix, result,i);
-                (*A_+i) -> update_last_fix(now_fix);
-
+                    // Publish UWB solution and send tf
+                    uwb_ins_eskf_msgs::uwbFIX now_fix;
+                    Publish_uwb(now_fix, result, i);
+                    send_tf(now_fix, result, "uwb_A" + std::to_string(i));
+                    (*A_+i) -> update_last_fix(now_fix);
+                }
+                
                 // next Anchor
                 if (i < Anchor_number-1){
                     std::cout << "\033[32m" << "---" << "\033[0m" << std::endl;

@@ -2,9 +2,9 @@
 #define UWB_POSITIONING_H_
 #include "ros/ros.h"
 #include "uwb_class.h"
-#include <uwb/uwbRAW.h>
-#include <uwb/uwbFIX.h>
-#include <uwb/uwbTAG.h>
+#include <uwb_ins_eskf_msgs/uwbRAW.h>
+#include <uwb_ins_eskf_msgs/uwbFIX.h>
+#include <uwb_ins_eskf_msgs/uwbTAG.h>
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_datatypes.h>
@@ -14,7 +14,7 @@
 #define Tag_number 8
 #define Anchor_number 4
 #define threshold_iteration_value_2d 0.00001
-#define threshold_iteration_value_3d 2
+#define threshold_iteration_value_3d 0.5
 #define threshold_iteration_num 10
 #define ini_manual 1
 #define ini_ublox 2
@@ -31,6 +31,7 @@ typedef struct Positioning_config{
     bool ublox_received = false;
     int weight_mode;
     std::string enabled_anchor;
+    int position_window = 10;
 }config;
 
 typedef struct Positioning_param{
@@ -48,6 +49,10 @@ typedef struct Positioning_param{
     bool iteration_continue;
     double iteration_value;
     double iteration_num;
+    // Record the minimum iteration value, corresponding delta_w and corresponding estimated position
+    double tmp_iter_v = INT_MAX;
+    Eigen::VectorXd tmp_esti_pos;
+    Eigen::MatrixXd tmp_delta_w;
 }positioning;
 
 class Uwbpositioning{
@@ -56,12 +61,12 @@ class Uwbpositioning{
         Uwbtag (*T_)[Tag_number];
         config positioning_config_;
         std::array<double,8> tag_receive_time_;
-        ros::Publisher (*pub_)[Anchor_number];
+        ros::Publisher (*pub_)[Anchor_number*2];
         tf::TransformBroadcaster br_;
         
     public:
-        Uwbpositioning(ros::Publisher (& pub)[Anchor_number], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config);
-        void UwbCalibrationCallback(const uwb::uwbRAW& msg);
+        Uwbpositioning(ros::Publisher (& pub)[Anchor_number*2], Uwbanchor (& A)[Anchor_number], Uwbtag (& T)[Tag_number], config positioning_config);
+        void UwbCalibrationCallback(const uwb_ins_eskf_msgs::uwbRAW& msg);
         void UbloxfixCallback(const sensor_msgs::NavSatFix& msg);
         double Distance(Eigen::VectorXd A, Eigen::VectorXd T);
         void Estimated_range(positioning& variables);
@@ -70,21 +75,23 @@ class Uwbpositioning{
         void Pseudo_Invert(positioning& variables); //pseudo-inverse
         void Weight_matrix(positioning& variables, Uwbanchor* A); //generate weight as filtering unavailable range
         void Update_estimate(positioning& variables);
-        Eigen::VectorXd Propagate_sol(Uwbanchor* A);
+        bool Propagate_sol(Uwbanchor* A, Eigen::VectorXd& result);
 
         // For 2D
         void Estimated_range_2d(positioning& variables);
         void H_matrix_2d(positioning& variables);// (estimate location - fixed tag)/estimated range
         void Pseudo_Invert_2d(positioning& variables); //pseudo-inverse
         void Update_estimate_2d(positioning& variables);
-        Eigen::VectorXd Propagate_sol_2d(Uwbanchor* A);
+        bool Propagate_sol_2d(Uwbanchor* A, Eigen::VectorXd& result);
         //
 
         void show_config();
         Eigen::Vector3d estimate_velocity(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu, double time_interval);
         Eigen::Vector3d estimate_orientation(Eigen::Vector3d now_enu, Eigen::Vector3d last_enu);
-        void Publish_uwb(uwb::uwbFIX &now_fix, Eigen::VectorXd now_enu, int A_num);
-        void send_tf(uwb::uwbFIX now_fix, Eigen::Vector3d now_enu, int A_num);
+        Eigen::Vector3d transform2baselink(Eigen::Vector3d now_enu, Eigen::Vector3d att_l, int A_num);
+        void publish_baselink(uwb_ins_eskf_msgs::uwbFIX &msg, Eigen::Vector3d &baselink_location_enu, Eigen::Vector3d now_enu, int A_num);
+        void Publish_uwb(uwb_ins_eskf_msgs::uwbFIX &now_fix, Eigen::VectorXd now_enu, int A_num);
+        void send_tf(uwb_ins_eskf_msgs::uwbFIX now_fix, Eigen::Vector3d now_enu, std::string tf_name);
         void Test();
 
 };

@@ -6,10 +6,10 @@
 #include "ros/ros.h"
 
 #include <CppLinuxSerial/SerialPort.hpp>
-#include <uwb/uwbRAW.h>
+#include <uwb_ins_eskf_msgs/uwbRAW.h>
 
 pthread_mutex_t mutex;
-uwb::uwbRAW uwb_data;
+uwb_ins_eskf_msgs::uwbRAW uwb_data;
 
 struct arg_struct {
     mn::CppLinuxSerial::SerialPort arg1;
@@ -34,7 +34,7 @@ const std::vector<std::string> Split(const std::string &str, const char &delimit
     return result;
 }
 
-void Available_anchor(const std::string& message, uwb::uwbRAW& data){
+void Available_anchor(const std::string& message, uwb_ins_eskf_msgs::uwbRAW& data){
     int a_c = 0;
     message[1] >= 'a' ? a_c = int(message[1]) - int('a') + 10 : a_c = stoi(message);
     a_c % 2 == 1 ? data.A0 = true : data.A0 = false;
@@ -48,8 +48,8 @@ double Convert_distance(const std::string& message){
     return result/1000;
 }
 
-uwb::uwbRAW Fill_in_topic(const std::vector<std::string> data) {
-    uwb::uwbRAW result;
+uwb_ins_eskf_msgs::uwbRAW Fill_in_topic(const std::vector<std::string> data) {
+    uwb_ins_eskf_msgs::uwbRAW result;
     struct timeval t_now;
     gettimeofday(&t_now,NULL);
     result.stamp.sec = t_now.tv_sec;
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
 
     nh.param("port", port_ , std::string("/dev/ttyUSB0"));
 
-    ros::Publisher pub = n.advertise<uwb::uwbRAW>("uwb_raw", 1);
+    ros::Publisher pub = n.advertise<uwb_ins_eskf_msgs::uwbRAW>("uwb_raw", 1);
     
 	// Create serial port object and open serial port
     SerialPort serialPort(port_, BaudRate::B_115200, NumDataBits::EIGHT, Parity::NONE, NumStopBits::ONE);

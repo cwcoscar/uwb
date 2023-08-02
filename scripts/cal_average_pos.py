@@ -7,8 +7,8 @@ import sys
 import csv
 import pymap3d as pm
 
-dir = "/home/mec/Desktop/cwc/uwb/20230328test_frontbuilding/tag_location/"
-filename = "tag04_fix"
+dir = "/home/meclab/Desktop/Bag/UWB/20230328test_frontbuilding_sunrise/tag_location/"
+filename = "tag01_fix"
 
 def cal_bias_std(df):
     lat = df['field.latitude'].mean(axis = 0)

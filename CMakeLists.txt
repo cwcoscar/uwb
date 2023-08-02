@@ -13,21 +13,22 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   tf
   sensor_msgs
+  uwb_ins_eskf_msgs
 )
 
 ## Generate messages in the 'msg' folder
-add_message_files(DIRECTORY msg)
+# add_message_files(DIRECTORY msg)
 # add_message_files(
 #   FILES
 #   uwb_raw.msg
 #   uwb_ndt_compare.msg
 # )
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs
+#   geometry_msgs
+# )
 
 catkin_package(
  CATKIN_DEPENDS 
@@ -51,14 +52,6 @@ add_executable(uwb_positioning src/main_positioning.cpp src/uwb_positioning.cpp 
 target_link_libraries(uwb_positioning ${catkin_LIBRARIES})
 
 add_dependencies(uwb_positioning
-  ${catkin_EXPORTED_TARGETS}
-)
-
-add_executable(uwb_ndt_comparison src/uwb_ndt_compare.cpp)
-
-target_link_libraries(uwb_ndt_comparison ${catkin_LIBRARIES})
-
-add_dependencies(uwb_ndt_comparison
   ${catkin_EXPORTED_TARGETS}
 )
 
@@ -110,7 +103,6 @@ install(PROGRAMS
 install(TARGETS
   uwb_start_YCHIOT
   uwb_calibration
-  uwb_ndt_comparison
   uwb_positioning
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
